@@ -14,19 +14,20 @@ class HeapRecordManager : public BaseRecordManager
 {
 public:
 	HeapRecordManager(size_t blockSize);
-	virtual void Create(string path, Schema schema) override;
+	virtual void Create(string path, Schema* schema) override;
 	virtual void Open(string path) override;
 	virtual void Close() override;
 
 	// Inherited via BaseRecordManager
-	virtual Schema& GetSchema() override;
+	virtual Schema* GetSchema() override;
+	virtual unsigned long long GetSize() override;
 	virtual void Insert(Record record) override;
 	virtual void Delete(unsigned long long id) override;
 
 protected:
 	// Inherited via BaseRecordManager
 	virtual void MoveToStart() override;
-	virtual bool MoveNext(Record* record) override;
+	virtual bool MoveNext(Record* record, unsigned long long& accessedBlocks) override;
 
 private:
 	File<HeapFileHead>* m_File;

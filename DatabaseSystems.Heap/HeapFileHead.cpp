@@ -5,7 +5,7 @@ HeapFileHead::HeapFileHead() : NextId(0)
 {
 }
 
-HeapFileHead::HeapFileHead(Schema schema)
+HeapFileHead::HeapFileHead(Schema* schema) : NextId(0)
 {
     m_Schema = schema;
 }

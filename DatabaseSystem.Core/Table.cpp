@@ -15,7 +15,23 @@ void Table::Close()
     m_RecordManager.Close();
 }
 
-void Table::Create(string path, Schema& schema)
+
+unsigned long long Table::GetSize()
+{
+    return m_RecordManager.GetSize();
+}
+
+Schema* Table::GetSchema()
+{
+    return m_RecordManager.GetSchema();
+}
+
+unsigned long long Table::GetLastQueryAccessedBlocksCount()
+{
+    return m_RecordManager.GetLastQueryBlockAccessCount();
+}
+
+void Table::Create(string path, Schema* schema)
 {
     m_RecordManager.Create(path, schema);
 }
@@ -42,13 +58,13 @@ vector<Record*> Table::Select(vector<unsigned long long> ids)
 
 vector<Record*> Table::SelectWhereBetween(string columnName, span<unsigned char> min, span<unsigned char> max)
 {
-    auto columnId = m_RecordManager.GetSchema().GetColumnId(columnName);
+    auto columnId = m_RecordManager.GetSchema()->GetColumnId(columnName);
     return m_RecordManager.SelectWhereBetween(columnId, min, max);
 }
 
 vector<Record*> Table::SelectWhereEquals(string columnName, span<unsigned char> data)
 {
-    auto columnId = m_RecordManager.GetSchema().GetColumnId(columnName);
+    auto columnId = m_RecordManager.GetSchema()->GetColumnId(columnName);
     return m_RecordManager.SelectWhereEquals(columnId, data);
 }
 
@@ -59,6 +75,6 @@ void Table::Delete(unsigned long long id)
 
 int Table::DeleteWhereEquals(string columnName, span<unsigned char> data)
 {
-    auto columnId = m_RecordManager.GetSchema().GetColumnId(columnName);
+    auto columnId = m_RecordManager.GetSchema()->GetColumnId(columnName);
     return m_RecordManager.DeleteWhereEquals(columnId, data);
 }

@@ -5,7 +5,7 @@
 class FileHead : public Serializable
 {
 public:
-	Schema& GetSchema();
+	Schema* GetSchema();
 
 	unsigned int GetBlocksCount() {
 		return m_BlocksCount;
@@ -24,7 +24,7 @@ public:
 	virtual void Deserialize(iostream& src) override;
 
 protected:
-	Schema m_Schema;
+	Schema* m_Schema;
 	unsigned int m_BlocksCount;
 	//unsigned int m_RecordsStartOffset;
 };

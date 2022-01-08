@@ -8,8 +8,13 @@ public:
 	Table(BaseRecordManager& recordManager);
 
 	void Load(string path);
-	void Create(string path, Schema& schema);
+	void Create(string path, Schema* schema);
 	void Close();
+
+	unsigned long long GetSize();
+	Schema* GetSchema();
+	unsigned long long GetLastQueryAccessedBlocksCount();
+
 
 	// ---------------------------------------------- <INSERT> --------------------------------------------------------------------------
 	void Insert(Record record);

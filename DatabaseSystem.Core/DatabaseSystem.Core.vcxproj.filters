@@ -54,6 +54,12 @@
     <ClInclude Include="Assertions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="BetterEnums.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ColumnType.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp">

@@ -19,6 +19,7 @@
 #include <memory>
 #include <exception>
 #include <concepts>
+#include <sstream>
 
 using namespace std;
 

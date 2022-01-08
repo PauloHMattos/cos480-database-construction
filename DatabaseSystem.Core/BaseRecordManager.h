@@ -6,10 +6,12 @@
 class BaseRecordManager
 {
 public:
-	virtual void Create(string path, Schema schema) = 0;
+	virtual void Create(string path, Schema* schema) = 0;
 	virtual void Open(string path) = 0;
 	virtual void Close() = 0;
-	virtual Schema& GetSchema() = 0;
+	virtual Schema* GetSchema() = 0;
+	virtual unsigned long long GetSize() = 0;
+	unsigned long long GetLastQueryBlockAccessCount() const;
 
 	// ---------------------------------------------- <INSERT> --------------------------------------------------------------------------
 	/*
@@ -68,7 +70,8 @@ public:
 	// ---------------------------------------------- </DELETE> --------------------------------------------------------------------------
 
 protected:
+	unsigned long long m_LastQueryBlockAccessCount;
 	virtual void MoveToStart() = 0;
-	virtual bool MoveNext(Record* record) = 0;
+	virtual bool MoveNext(Record* record, unsigned long long& accessedBlocks) = 0;
 };
 

@@ -12,11 +12,11 @@ HeapRecordManager::HeapRecordManager(size_t blockSize) :
 {
 }
 
-void HeapRecordManager::Create(string path, Schema schema)
+void HeapRecordManager::Create(string path, Schema* schema)
 {
     m_File->NewFile(path, new HeapFileHead(schema));
 
-    auto schemaSize = GetSchema().GetSize();
+    auto schemaSize = GetSchema()->GetSize();
     auto blockLength = m_File->GetBlockSize();
     auto blockContentLength = m_File->GetBlockSize() - sizeof(unsigned int);
     m_RecordsPerBlock = floor(blockContentLength / schemaSize);
@@ -29,7 +29,7 @@ void HeapRecordManager::Open(string path)
 {
     m_File->Open(path, new HeapFileHead());
 
-    auto schemaSize = GetSchema().GetSize();
+    auto schemaSize = GetSchema()->GetSize();
     auto blockLength = m_File->GetBlockSize();
     auto blockContentLength = m_File->GetBlockSize() - sizeof(unsigned int);
     m_RecordsPerBlock = floor(blockContentLength / schemaSize);
@@ -43,9 +43,16 @@ void HeapRecordManager::Close()
     m_File->Close();
 }
 
-Schema& HeapRecordManager::GetSchema()
+Schema* HeapRecordManager::GetSchema()
 {
     return m_File->GetHead()->GetSchema();
+}
+
+unsigned long long HeapRecordManager::GetSize()
+{
+    auto writtenBlocks = m_File->GetBlockSize() * m_File->GetHead()->GetBlocksCount();
+    auto recordsToBeWritten = m_WriteBlock->GetRecordsCount() * GetSchema()->GetSize();
+    return writtenBlocks + recordsToBeWritten;
 }
 
 void HeapRecordManager::Insert(Record record)
@@ -74,10 +81,10 @@ void HeapRecordManager::MoveToStart()
     m_NextReadBlockNumber = 0;
 }
 
-bool HeapRecordManager::MoveNext(Record* record)
+bool HeapRecordManager::MoveNext(Record* record, unsigned long long& accessedBlocks)
 {
     auto blocksCount = m_File->GetHead()->GetBlocksCount();
-
+    auto initialBlock = m_NextReadBlockNumber;
     if (m_NextReadBlockNumber == 0)
     {
         //did not start to read before
@@ -125,6 +132,7 @@ bool HeapRecordManager::MoveNext(Record* record)
             Assert(false, "Should not reached this line");
         }
     }
+    accessedBlocks = m_NextReadBlockNumber - initialBlock;
     return returnVal;
 }
 

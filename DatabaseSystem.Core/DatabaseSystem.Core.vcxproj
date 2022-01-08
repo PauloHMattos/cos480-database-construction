@@ -157,6 +157,8 @@
   <ItemGroup>
     <ClInclude Include="Assertions.h" />
     <ClInclude Include="BaseRecordManager.h" />
+    <ClInclude Include="BetterEnums.h" />
+    <ClInclude Include="ColumnType.h" />
     <ClInclude Include="DoubleList.h" />
     <ClInclude Include="File.h" />
     <ClInclude Include="Block.h" />

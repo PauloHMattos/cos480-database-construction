@@ -72,7 +72,7 @@ public:
 
 	Block* CreateBlock()
 	{
-		return new Block(m_BlockSize, m_FileHead->GetSchema().GetSize());
+		return new Block(m_BlockSize, m_FileHead->GetSchema()->GetSize());
 	}
 
 	TFileHead* GetHead()

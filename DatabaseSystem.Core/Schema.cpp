@@ -5,14 +5,14 @@
 
 Schema::Schema() : m_Size(0), m_Columns(vector<Column>())
 {
-	AddColumn("Id", ColumnType::INT64, 0);
+	AddColumn("Id", ColumnType::INT64);
 }
 
 void Schema::AddColumn(string name, ColumnType type, unsigned int arraySize)
 {
 	auto newColumn = Column(name, type, arraySize);
 	m_Columns.push_back(newColumn);
-	m_Size += newColumn.getLength();
+	m_Size += newColumn.GetLength();
 }
 
 unsigned int Schema::GetSize() const
@@ -43,16 +43,37 @@ span<unsigned char> Schema::GetValue(vector<unsigned char>* data, unsigned int c
 	for (size_t i = 0; i < columnId; i++)
 	{
 		auto &column = m_Columns[i];
-		offset += column.getLength();
+		offset += column.GetLength();
 	}
 	auto &column = m_Columns[columnId];
-	return span(&data->data()[offset], column.getLength());
+	return span(&data->data()[offset], column.GetLength());
+}
+
+void Schema::Write(ostream& out, vector<unsigned char>* data)
+{
+	out << "{" << endl;
+	size_t offset = 0;
+	for (size_t i = 0; i < m_Columns.size(); i++)
+	{
+		auto& column = m_Columns[i];
+		out << '\t' << column.Name << "[" << column.Type;;
+		if (column.ArraySize > 1) {
+			out << "(" << column.ArraySize << ")";
+		}
+		out << "]" << " = ";
+		auto columnValue = span(&data->data()[offset], column.GetLength());
+		Column::WriteValue(out, column, columnValue);
+		out << "," << endl;
+
+		offset += column.GetLength();
+	}
+	out << '\b' << "}";
 }
 
 void Schema::Serialize(iostream& dst)
 {
 	auto size = m_Columns.size();
-	dst.write(reinterpret_cast<const char*>(&size), sizeof(size));
+	dst << size << endl;
 	for (auto &column : m_Columns)
 	{
 		dst << column.Name << "," << (int)column.Type << "," << column.ArraySize << endl;
@@ -61,9 +82,10 @@ void Schema::Serialize(iostream& dst)
 
 void Schema::Deserialize(iostream& src)
 {
-	size_t size = 0;
+	size_t size;
 	src >> size;
-	//src.read(reinterpret_cast<char*>(&size), sizeof(size));
+	string line;
+	getline(src, line);
 	for (size_t i = 0; i < size; i++)
 	{
 		string line;
@@ -78,6 +100,6 @@ void Schema::Deserialize(iostream& src)
 		if (row.size() != 3) {
 			throw runtime_error("Missing fields in schema");
 		}
-		AddColumn(row[0], static_cast<ColumnType>(stoi(row[1])), stoi(row[2]));
+		AddColumn(row[0], ColumnType::_from_index(stoi(row[1])), stoi(row[2]));
 	}
 }

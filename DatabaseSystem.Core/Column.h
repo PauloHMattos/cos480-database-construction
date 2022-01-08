@@ -1,13 +1,5 @@
 #pragma once
-
-enum class ColumnType
-{
-	INT32,
-	INT64,
-	CHAR,
-	FLOAT,
-	DOUBLE,
-};
+#include "ColumnType.h"
 
 struct Column
 {
@@ -17,9 +9,11 @@ public:
 	unsigned int ArraySize;
 
 	Column(string name, ColumnType type, unsigned int arraySize);
-	unsigned int getLength();
+	unsigned int GetLength() const;
 
 
-	static int Compare(Column column, span<unsigned char> a, span<unsigned char> b);
-	static bool Equals(Column column, span<unsigned char> a, span<unsigned char> b);
+	static int Compare(const Column& column, span<unsigned char> a, span<unsigned char> b);
+	static bool Equals(const Column& column, span<unsigned char> a, span<unsigned char> b);
+	static void Parse(const Column& column, span<unsigned char> destination, string str);
+	static void WriteValue(ostream& out, const Column& column, span<unsigned char> destination);
 };

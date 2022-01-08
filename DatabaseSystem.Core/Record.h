@@ -4,8 +4,7 @@
 class Record
 {
 public:
-	Record(Schema& schema);
-	//void CopyData(Record* record);
+	Record(Schema* schema);
 	vector<unsigned char>* GetData();
 	void SetData(size_t index, unsigned char value);
 
@@ -16,8 +15,11 @@ public:
 	{
 		return (T*)m_Data.data();
 	}
-	
+
+	void Write(ostream& out);
+	static vector<Record> LoadFromCsv(Schema& schema, string path);
+
 private:
-	Schema& m_Schema;
+	Schema* m_Schema;
 	vector<unsigned char> m_Data;
 };
