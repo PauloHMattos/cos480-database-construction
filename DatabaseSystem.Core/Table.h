@@ -9,6 +9,7 @@ public:
 
 	void Load(string path);
 	void Create(string path, Schema& schema);
+	void Close();
 
 	// ---------------------------------------------- <INSERT> --------------------------------------------------------------------------
 	void Insert(Record record);

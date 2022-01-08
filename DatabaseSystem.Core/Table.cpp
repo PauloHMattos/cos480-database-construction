@@ -10,6 +10,11 @@ void Table::Load(string path)
     m_RecordManager.Open(path);
 }
 
+void Table::Close()
+{
+    m_RecordManager.Close();
+}
+
 void Table::Create(string path, Schema& schema)
 {
     m_RecordManager.Create(path, schema);

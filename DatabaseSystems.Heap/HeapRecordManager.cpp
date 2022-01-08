@@ -104,8 +104,6 @@ bool HeapRecordManager::MoveNext(Record* record)
     bool returnVal = m_ReadBlock->GetRecord(recordData);
 
     if (!returnVal) {
-        // Reads next block
-        blocksCount = m_File->GetHead()->GetBlocksCount();
         if (m_NextReadBlockNumber == blocksCount && m_WriteBlock->GetRecordsCount() == 0) {
             // We dont have any more blocs to read from
         }
@@ -119,13 +117,13 @@ bool HeapRecordManager::MoveNext(Record* record)
             }
         }
         else if (m_NextReadBlockNumber < blocksCount) {
+            // Reads next block
             ReadNextBlock();
             returnVal = m_ReadBlock->GetRecord(recordData);
         }
         else {
             Assert(false, "Should not reached this line");
         }
-
     }
     return returnVal;
 }

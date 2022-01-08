@@ -58,8 +58,6 @@ vector<Record*> BaseRecordManager::SelectWhereBetween(unsigned int columnId, spa
 			records.push_back(newRecord);
 		}
 	}
-
-
 	return records;
 }
 
