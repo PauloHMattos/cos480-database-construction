@@ -157,6 +157,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Benchmarks.cpp" />
+    <ClCompile Include="FixedRecord.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DatabaseSystem.Core\DatabaseSystem.Core.vcxproj">
@@ -167,6 +168,8 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="FixedRecord.h" />
+    <ClInclude Include="nameof.hpp" />
     <ClInclude Include="pch.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

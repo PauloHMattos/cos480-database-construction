@@ -3,51 +3,165 @@
 
 #include <iostream>
 #include "pch.h"
+#include "FixedRecord.h"
 #include "../DatabaseSystem.Core/Table.h"
 #include "../DatabaseSystems.Heap/HeapRecordManager.h"
 
-void runBenchmark(Table& table);
+#define SPANOF(value) span<unsigned char>((unsigned char*)&value, sizeof(value))
 
-#pragma pack(1)
-struct SimpleRecord {
-    unsigned long long Id;
-    int IntValue;
-    double DoubleValue;
-};
+void runBenchmark(Table& table);
+void insertMany(Table& table, vector<Record> records);
+void findOne(Table& table);
+void findAllSet(Table& table);
+void findAllBetween(Table& table);
+void findAllEquals(Table& table);
+void deleteOne(Table& table);
+void deleteAllEquals(Table& table);
+void printRecords(vector<Record*> records, string label = "Records");
 
 int main()
 {
-    auto fixedSchema = Schema();
-    fixedSchema.AddColumn("IntValue", ColumnType::INT32);
-    fixedSchema.AddColumn("DoubleValue", ColumnType::DOUBLE);
+    auto fixedSchema = FixedRecord::CreateSchema();
 
     auto dbPath = "C:\\Users\\Paulo Mattos\\source\\repos\\DatabaseSystem\\DatabaseSystem\\x64\\Debug\\test.db";
-
-    auto heap = HeapRecordManager(50);
+    auto heap = HeapRecordManager(4096);
     auto table = Table(heap);
-    table.Create(dbPath, fixedSchema);
     //table.Load(dbPath);
+    table.Create(dbPath, fixedSchema);
+    
+    auto records = Record::LoadFromCsv(*fixedSchema, "C:\\Users\\Paulo Mattos\\Desktop\\cbd.csv");
 
-    auto record = Record(fixedSchema);
-    auto simpleRecord = record.As<SimpleRecord>();
-    simpleRecord->Id = 99;
-    simpleRecord->DoubleValue = 99.00;
+    insertMany(table, records);
+    findOne(table);
+    findAllSet(table);
+    findAllBetween(table);
+    findAllEquals(table);
 
-    for (int i = 0; i < 10; i++)
-    {
-        simpleRecord->IntValue = i;
-        table.Insert(record);
-    }
-
-    runBenchmark(table);
+    table.Close();
 }
 
-void runBenchmark(Table& table)
+void insertMany(Table& table, vector<Record> records)
 {
-    auto r = table.Select({ 1, 5 });
+    cout << "[InsertMany]" << endl;
+    cout << "- Count = " << records.size() << endl;
+    auto start = std::chrono::high_resolution_clock::now();
+    table.InsertMany(records);
+    auto finish = std::chrono::high_resolution_clock::now();
+    auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
+    cout << "- Duration = " << microseconds.count() << " ms" << endl;
+    cout << "- Space usage = " << table.GetSize() << " Bytes" << endl;
+    cout << endl;
+}
 
-    double value = 99.00;
-    auto data = span<unsigned char>((unsigned char*)&value, sizeof(double));
-    auto result = table.SelectWhereEquals("DoubleValue", data);
-    cout << result.size() << endl;
+void findOne(Table& table)
+{
+    cout << "[Find] Random Id" << endl;
+
+    std::random_device rd; // obtain a random number from hardware
+    std::mt19937 gen(rd()); // seed the generator
+    std::uniform_int_distribution<unsigned long long> distr(0, 100000); // define the range
+
+    auto id = distr(gen);
+    cout << "- Id = " << id << endl;
+
+    auto start = std::chrono::high_resolution_clock::now();
+    auto record = table.Select(id);
+    auto finish = std::chrono::high_resolution_clock::now();
+    auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
+    cout << "- Duration = " << microseconds.count() << " ms" << endl;
+    cout << "- Accessed Blocks = " << table.GetLastQueryAccessedBlocksCount() << endl;
+
+    cout << "- Result = ";
+    if (record != nullptr)
+    {
+        record->Write(cout);
+    }
+    else {
+        cout << " Not Found";
+    }
+    cout << endl;
+    cout << endl;
+}
+
+
+void findAllSet(Table& table)
+{
+    cout << "[FindAll] Random Set" << endl;
+
+    std::random_device rd; // obtain a random number from hardware
+    std::mt19937 gen(rd()); // seed the generator
+    std::uniform_int_distribution<unsigned long long> distr(0, 100000); // define the range
+    
+    cout << "- Ids = [";
+    int count = 10;
+    auto ids = vector<unsigned long long>();
+    for (int i = 0; i < count; i++)
+    {
+        auto id = distr(gen);
+        cout << id << ", ";
+        ids.push_back(id);
+    }
+    cout << '\b' << '\b' << "]" << endl;
+
+    auto start = std::chrono::high_resolution_clock::now();
+    auto records = table.Select(ids);
+    auto finish = std::chrono::high_resolution_clock::now();
+    auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
+    cout << "- Duration = " << microseconds.count() << " ms" << endl;
+    cout << "- Accessed Blocks = " << table.GetLastQueryAccessedBlocksCount() << endl;
+    printRecords(records);
+    cout << endl;
+}
+
+void findAllBetween(Table& table)
+{
+    float min = 117;
+    float max = 200;
+    cout << "[FindAll] Weigth Between " << min << " - " << max << endl;
+
+    auto start = std::chrono::high_resolution_clock::now();
+    auto records = table.SelectWhereBetween(NAMEOF(FixedRecord::Weigth).str(), SPANOF(min), SPANOF(max));
+    auto finish = std::chrono::high_resolution_clock::now();
+    auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
+    cout << "- Duration = " << microseconds.count() << " ms" << endl;
+    cout << "- Accessed Blocks = " << table.GetLastQueryAccessedBlocksCount() << endl;
+    printRecords(records);
+    cout << endl;
+}
+
+void findAllEquals(Table& table)
+{
+    char city[40] = "Taguatinga";
+    cout << "[FindAll] City = " << city << endl;
+
+    auto start = std::chrono::high_resolution_clock::now();
+    auto records = table.SelectWhereEquals(NAMEOF(FixedRecord::City).str(), SPANOF(city));
+    auto finish = std::chrono::high_resolution_clock::now();
+    auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
+    cout << "- Duration = " << microseconds.count() << " ms" << endl;
+    cout << "- Accessed Blocks = " << table.GetLastQueryAccessedBlocksCount() << endl;
+    printRecords(records);
+    cout << endl;
+}
+
+void deleteOne(Table& table)
+{
+
+}
+
+void deleteAllEquals(Table& table)
+{
+
+}
+
+void printRecords(vector<Record*> records, string label)
+{
+    cout << "- " << label << " (" << records.size() << ") = [ ";
+    for (auto record : records)
+    {
+        cout << endl;
+        record->Write(cout);
+        cout << ",";
+    }
+    cout << '\b' << "]" << endl;
 }
