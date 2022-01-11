@@ -5,7 +5,7 @@ OrderedFileHead::OrderedFileHead()
 {
 }
 
-OrderedFileHead::OrderedFileHead(Schema schema)
+OrderedFileHead::OrderedFileHead(Schema *schema) : NextId(0)
 {
   m_Schema = schema;
 }

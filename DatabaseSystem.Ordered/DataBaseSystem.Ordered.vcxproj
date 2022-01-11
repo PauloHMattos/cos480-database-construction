@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{a36e3d47-20e3-4422-801f-ed9748b68237}</ProjectGuid>
+    <ProjectGuid>{D51CAE0D-933C-40AA-A0C9-FFB18F43BC28}</ProjectGuid>
     <RootNamespace>DatabaseSystemsOrdered</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>

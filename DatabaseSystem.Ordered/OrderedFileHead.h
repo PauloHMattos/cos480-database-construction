@@ -5,7 +5,7 @@ class OrderedFileHead : public FileHead
 {
 public:
   OrderedFileHead();
-  OrderedFileHead(Schema schema);
+  OrderedFileHead(Schema *schema);
   ~OrderedFileHead();
   unsigned long long NextId;
 
