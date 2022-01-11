@@ -164,6 +164,9 @@
     <ProjectReference Include="..\DatabaseSystem.Core\DatabaseSystem.Core.vcxproj">
       <Project>{5aed0241-a4ac-4509-a91a-1bd2954cf54c}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\DatabaseSystem.Ordered\DataBaseSystem.Ordered.vcxproj">
+      <Project>{d51cae0d-933c-40aa-a0c9-ffb18f43bc28}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\DatabaseSystems.Heap\DatabaseSystems.Heap.vcxproj">
       <Project>{a36e3d47-20e3-4422-801f-ed9748b68237}</Project>
     </ProjectReference>

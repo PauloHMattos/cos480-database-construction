@@ -24,12 +24,29 @@ public:
 		m_FirstBlockPos = (streamoff)m_Stream.tellg() - 1;
 	}
 
+	void UpdatePath(string path, TFileHead* head)
+	{
+		m_FilePath = path;
+		m_Stream.open(path);
+		m_Stream.seekg(0, ios::beg);
+		m_Stream.seekp(0, ios::beg);
+		m_FileHead = head;
+		m_FirstBlockPos = (streamoff)m_Stream.tellg() - 1;
+	}
+
 	void Close()
 	{
 		m_Stream.seekp(0, ios::beg);
 		m_FileHead->Serialize(m_Stream);
 		m_Stream.flush();
 		m_Stream.close();
+	}
+
+	void SeekHead()
+	{
+		m_Stream.seekg(0, ios::beg);
+		m_Stream.seekp(0, ios::beg);
+		m_FileHead->SetBlocksCount(0);
 	}
 
 	void NewFile(string path, TFileHead* head)
@@ -115,6 +132,11 @@ public:
 		//m_Stream.close();
 		//filesystem::copy_file("temp.db", m_FilePath);
 		//m_Stream = trimmedFile;
+	}
+
+	string GetPath()
+	{
+		return m_FilePath;
 	}
 
 protected:

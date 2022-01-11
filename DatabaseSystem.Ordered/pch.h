@@ -17,8 +17,8 @@
 #include <string>
 #include <concepts>
 #include <fstream>
+#include <algorithm>
 
 using namespace std;
-
 
 #endif //PCH_H
