@@ -61,7 +61,7 @@ public:
 	* Remoção de um único registro selecionado através da chave primária (ou campo cujo valor seja único)
 	*	Por exemplo, remover o ALUNO cujo DRE é dado.
 	*/
-	virtual void Delete(unsigned long long id) = 0;
+	virtual void Delete(unsigned long long id);
 	/*
 	* Remoção de um conjunto de registros selecionados por algum critério
 	*	Por exemplo, remover todos os ALUNOS da tabela INSCRITOS cuja turma seja a de NUMERO=1023.
@@ -71,7 +71,10 @@ public:
 
 protected:
 	unsigned long long m_LastQueryBlockAccessCount;
+	bool MoveNext(Record* record, unsigned long long& accessedBlocks);
+
 	virtual void MoveToStart() = 0;
-	virtual bool MoveNext(Record* record, unsigned long long& accessedBlocks) = 0;
+	virtual bool MoveNext(Record* record, unsigned long long& accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock) = 0;
+	virtual void DeleteInternal(unsigned long long blockNumber, unsigned long long recordNumberInBlock) = 0;
 };
 
