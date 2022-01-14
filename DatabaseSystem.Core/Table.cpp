@@ -36,6 +36,12 @@ void Table::Create(string path, Schema* schema)
     m_RecordManager.Create(path, schema);
 }
 
+void Table::Create(string path, Schema* schema, string orderByColumn)
+{
+    auto columnId = schema->GetColumnId(orderByColumn);
+    m_RecordManager.Create(path, schema, columnId);
+}
+
 void Table::Insert(Record record)
 {
     m_RecordManager.Insert(record);

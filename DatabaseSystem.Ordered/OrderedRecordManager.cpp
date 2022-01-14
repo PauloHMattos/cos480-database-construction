@@ -7,7 +7,8 @@ OrderedRecordManager::OrderedRecordManager(size_t blockSize) : m_File(new File<O
                                                                m_ReadBlock(nullptr),
                                                                m_WriteBlock(nullptr),
                                                                m_NextReadBlockNumber(0),
-                                                               m_MaxExtensionFileSize(10),
+                                                               m_OrderedByColumnId(0),
+                                                               m_MaxExtensionFileSize(1000),
                                                                m_MaxPercentEmptySpace(0.2),
                                                                m_RecordsPerBlock(0), 
                                                                m_UsingExtensionAsMain(false)
@@ -27,6 +28,12 @@ void OrderedRecordManager::Create(string path, Schema *schema)
 
   m_ReadBlock = m_File->CreateBlock();
   m_WriteBlock = m_ExtensionFile->CreateBlock();
+}
+
+void OrderedRecordManager::Create(string path, Schema* schema, unsigned int orderedByColumnId)
+{
+    Create(path, schema);
+    m_OrderedByColumnId = orderedByColumnId;
 }
 
 void OrderedRecordManager::Open(string path)
@@ -98,35 +105,231 @@ void OrderedRecordManager::Insert(Record record)
 
 Record *OrderedRecordManager::Select(unsigned long long id)
 {
-  // TODO
-  // binary search this bitch
-    return BaseRecordManager::Select(id);
-}
+    // if the file is ordered by the id
+    if (m_OrderedByColumnId == 0) {
+        
+        m_LastQueryBlockAccessCount = 0;
+        unsigned long long accessedBlocks = 0;
 
-vector<Record *> OrderedRecordManager::Select(vector<unsigned long long> ids)
-{
-  // TODO
-  // for id in ids
-  // select id
-    return BaseRecordManager::Select(ids);
+        // try to binary search m_File
+        auto evalFunc = [](int eval, unsigned long long pivot, unsigned long long& min, unsigned long long& max) {
+            if (eval == 0) { // equal
+                return true;
+            }
+            else if (eval < 0) { // value < target
+                min = pivot + 1;
+            }
+            else { // value > target
+                max = pivot - 1;
+            }
+            return false;
+        };
+        auto currentRecord = BinarySearch(span<unsigned char>((unsigned char *)&id, sizeof(id)), evalFunc, accessedBlocks);
+        m_LastQueryBlockAccessCount += accessedBlocks;
+        
+        // if not found, try to linear search m_ExtensionFile
+        if (currentRecord == nullptr) {
+            currentRecord = new Record(GetSchema());
+
+            MoveToExtension();
+            while (MoveNext(currentRecord, accessedBlocks))
+            {
+                m_LastQueryBlockAccessCount += accessedBlocks;
+                if (currentRecord->getId() == id) {
+                    return currentRecord;
+                }
+            }
+        }
+        
+        return currentRecord;
+    }
+    // if the file is not ordered by id, linear search everything
+    return BaseRecordManager::Select(id);
 }
 
 vector<Record *> OrderedRecordManager::SelectWhereBetween(unsigned int columnId, span<unsigned char> min, span<unsigned char> max)
 {
-  //TODO
-  // check if column is id
-  // if it is, use select id
-  // if not, use base
+    // if the file is ordered by the column we are selecting
+    if (columnId == m_OrderedByColumnId) {
+
+        m_LastQueryBlockAccessCount = 0;
+        unsigned long long accessedBlocks = 0;
+
+        auto records = vector<Record*>();
+        auto schema = GetSchema();
+        auto column = schema->GetColumn(columnId);
+
+        // binary search min
+        auto evalFunc = [](int eval, unsigned long long pivot, unsigned long long& min, unsigned long long& max) {
+            if (eval >= 0) { // value >= target
+                return true;
+            }
+            else { // value < target
+                min = pivot + 1;
+            }
+            return false;
+        };
+        auto currentRecord = BinarySearch(min, evalFunc, accessedBlocks);
+        if (currentRecord != nullptr)
+        {
+            // if min was found, it might not be the first instance
+            // MovePrev until finding first
+            while (MovePrev(currentRecord, accessedBlocks))
+            {
+                m_LastQueryBlockAccessCount += accessedBlocks;
+                auto value = schema->GetValue(currentRecord->GetData(), columnId);
+
+                if (Column::Compare(column, value, min) < 0)
+                {
+                    break;
+                }
+            }
+
+            // at this point we should be at the first record 
+            // MoveNext while record is smaller than max
+            while (MoveNext(currentRecord, accessedBlocks))
+            {
+                m_LastQueryBlockAccessCount += accessedBlocks;
+                auto value = schema->GetValue(currentRecord->GetData(), columnId);
+
+                if (Column::Compare(column, value, max) > 0) {
+                    break;
+                }
+
+                if (Column::Compare(column, value, min) >= 0 && Column::Compare(column, value, max) <= 0)
+                {
+                    auto newRecord = new Record(schema);
+                    memcpy(newRecord->GetData()->data(), currentRecord->GetData()->data(), schema->GetSize());
+                    records.push_back(newRecord);
+                }
+            }
+        }
+        // at this point, the range is not present in the main file OR we found all records in the range in the main file OR we stopped somewhere in the extension file
+        // there might still be records in the range in the extension file
+
+        auto mainFileblocksCount = m_File->GetHead()->GetBlocksCount();
+        if (m_NextReadBlockNumber < mainFileblocksCount || currentRecord == nullptr) // we stopped somewhere in the main file
+        {
+            // we found all records in the range in the main file
+            // move to the star of extension file and continue
+            MoveToExtension();
+        }
+
+        // m_NextBlockNumber is somewhere in the extension file
+        // linear search extension file continuing from that point
+        while (MoveNext(currentRecord, accessedBlocks))
+        {
+            m_LastQueryBlockAccessCount += accessedBlocks;
+            auto value = schema->GetValue(currentRecord->GetData(), columnId);
+
+            if (Column::Compare(column, value, min) >= 0 && Column::Compare(column, value, max) <= 0)
+            {
+                auto newRecord = new Record(schema);
+                memcpy(newRecord->GetData()->data(), currentRecord->GetData()->data(), schema->GetSize());
+                records.push_back(newRecord);
+            }
+        }
+        return records;
+    }
+    // if the file is not ordered by id, linear search everything
     return BaseRecordManager::SelectWhereBetween(columnId, min, max);
 
 }
 
 vector<Record *> OrderedRecordManager::SelectWhereEquals(unsigned int columnId, span<unsigned char> data)
 {
-  // TODO
-  // check if column is id
-  // if it is, use select id
-  // if not, use base
+    // if the file is ordered by the column we are selecting
+    if (columnId == m_OrderedByColumnId) {
+
+        m_LastQueryBlockAccessCount = 0;
+        unsigned long long accessedBlocks = 0;
+
+        auto records = vector<Record*>();
+        auto schema = GetSchema();
+        auto column = schema->GetColumn(columnId);
+
+        // try to binary search m_File
+        auto evalFunc = [](int eval, unsigned long long pivot, unsigned long long& min, unsigned long long& max) {
+            if (eval == 0) { // equal
+                return true;
+            }
+            else if (eval < 0) { // value < target
+                min = pivot + 1;
+            }
+            else { // value > target
+                max = pivot - 1;
+            }
+            return false;
+        };
+        auto currentRecord = BinarySearch(data, evalFunc, accessedBlocks);
+        if (currentRecord != nullptr)
+        {
+            // if data was found, it might not be the first instance
+            // MovePrev until finding first
+            while (MovePrev(currentRecord, accessedBlocks))
+            {
+                m_LastQueryBlockAccessCount += accessedBlocks;
+                auto value = schema->GetValue(currentRecord->GetData(), columnId);
+
+                if (!Column::Equals(column, value, data))
+                {
+                    break;
+                }
+            }
+
+            // at this point we should be at the first record 
+            // MoveNext until record is different than data
+            auto enteredRange = false;
+            while (MoveNext(currentRecord, accessedBlocks))
+            {
+                m_LastQueryBlockAccessCount += accessedBlocks;
+                auto value = schema->GetValue(currentRecord->GetData(), columnId);
+
+                // the value of records found here should all be equal to data
+                // when records value != data, we left the range and should stop adding data to the return vector
+                // however, we can move too far back when searching for first instance
+                if (enteredRange && !Column::Equals(column, value, data)) { // if we have started to see records with value == data AND the current value is different
+                    // we have left the range and should stop
+                    break;
+                }
+
+                if (Column::Equals(column, value, data))
+                {
+                    enteredRange = true; // found something equal to data, we are inside the range
+                    auto newRecord = new Record(schema);
+                    memcpy(newRecord->GetData()->data(), currentRecord->GetData()->data(), schema->GetSize());
+                    records.push_back(newRecord);
+                }
+            }
+        }
+        // at this point, the data is not present in the main file OR we found all records equal to data in the main file OR we stopped somewhere in the extension file
+        // there might still be records in the range in the extension file
+
+        auto mainFileblocksCount = m_File->GetHead()->GetBlocksCount();
+        if (m_NextReadBlockNumber < mainFileblocksCount || currentRecord == nullptr) // we stopped somewhere in the main file
+        {
+            // we found all records equal to data in the main file
+            // move to the star of extension file and continue
+            MoveToExtension();
+        }
+
+        // m_NextBlockNumber is somewhere in the extension file
+        // linear search extension file continuing from that point
+        while (MoveNext(currentRecord, accessedBlocks))
+        {
+            m_LastQueryBlockAccessCount += accessedBlocks;
+            auto value = schema->GetValue(currentRecord->GetData(), columnId);
+
+            if (Column::Equals(column, value, data))
+            {
+                auto newRecord = new Record(schema);
+                memcpy(newRecord->GetData()->data(), currentRecord->GetData()->data(), schema->GetSize());
+                records.push_back(newRecord);
+            }
+        }
+        return records;
+    }
+    // if the file is not ordered by id, linear search everything
     return BaseRecordManager::SelectWhereEquals(columnId, data);
 }
 
@@ -146,12 +349,13 @@ void OrderedRecordManager::MoveToStart()
 
 bool OrderedRecordManager::MoveNext(Record *record, unsigned long long &accessedBlocks)
 {
-  auto blocksCount = m_File->GetHead()->GetBlocksCount();
+  auto mainBlocksCount = m_File->GetHead()->GetBlocksCount();
+  auto blocksCount = mainBlocksCount + m_ExtensionFile->GetHead()->GetBlocksCount();
   auto initialBlock = m_NextReadBlockNumber;
 
-  if (m_NextReadBlockNumber == 0)
+  if (m_NextReadBlockNumber == 0 || m_NextReadBlockNumber == mainBlocksCount)
   {
-    // did not start to read before
+    // did not start to read before or at start of extension file
     if (blocksCount > 0)
     {
       ReadNextBlock();
@@ -179,7 +383,6 @@ bool OrderedRecordManager::MoveNext(Record *record, unsigned long long &accessed
     if (m_NextReadBlockNumber == blocksCount && m_WriteBlock->GetRecordsCount() == 0)
     {
       // We dont have any more blocks to read from
-      // TODO: READ FROM EXTENSION FILE ?
     }
     else if (m_NextReadBlockNumber == blocksCount && m_WriteBlock->GetRecordsCount() != 0)
     {
@@ -206,6 +409,53 @@ bool OrderedRecordManager::MoveNext(Record *record, unsigned long long &accessed
   return returnVal;
 }
 
+bool OrderedRecordManager::MovePrev(Record *record, unsigned long long &accessedBlocks)
+{
+    auto mainBlocksCount = m_File->GetHead()->GetBlocksCount();
+    auto blocksCount = mainBlocksCount + m_ExtensionFile->GetHead()->GetBlocksCount();
+    auto intialBlock = m_NextReadBlockNumber;
+
+    if (m_NextReadBlockNumber == 0 || m_NextReadBlockNumber == mainBlocksCount)
+    {
+        // did not start to read before or at start of extension file
+        if (blocksCount > 0)
+        {
+            ReadPrevBlock();
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    auto recordData = record->GetData();
+    bool returnVal = m_ReadBlock->GetRecordBack(recordData);
+
+    if (!returnVal) 
+    {
+        if (m_NextReadBlockNumber == -1) 
+        {
+            // We don't have any more blocks to read
+        }
+        else if (m_NextReadBlockNumber >= 0)
+        {
+            ReadPrevBlock();
+            returnVal = m_ReadBlock->GetRecordBack(recordData);
+        }
+        else
+        {
+            Assert(false, "Should not have reached this line");
+        }
+    }
+    accessedBlocks = intialBlock - m_NextReadBlockNumber;
+    return returnVal;
+}
+
+void OrderedRecordManager::MoveToExtension()
+{
+    m_NextReadBlockNumber = m_File->GetHead()->GetBlocksCount();
+}
+
 void OrderedRecordManager::WriteAndRead()
 {
   m_ExtensionFile->AddBlock(m_WriteBlock);
@@ -215,12 +465,45 @@ void OrderedRecordManager::WriteAndRead()
 
 void OrderedRecordManager::ReadNextBlock()
 {
-  m_ReadBlock->Clear();
-  m_File->GetBlock(m_NextReadBlockNumber, m_ReadBlock);
-  // TODO ?
-  // maybe read from extension file ?
-  m_ReadBlock->MoveToStart();
-  m_NextReadBlockNumber++;
+    m_ReadBlock->Clear();
+    auto mainFileBlockCount = m_File->GetHead()->GetBlocksCount();
+    if (m_NextReadBlockNumber < mainFileBlockCount) {
+        m_File->GetBlock(m_NextReadBlockNumber, m_ReadBlock);
+    }
+    else {
+        auto blockId = m_NextReadBlockNumber - mainFileBlockCount;
+        m_ExtensionFile->GetBlock(blockId, m_ReadBlock);
+    }
+    m_ReadBlock->MoveToStart();
+    m_NextReadBlockNumber++;
+}
+
+void OrderedRecordManager::ReadPrevBlock()
+{
+    m_ReadBlock->Clear();
+    auto mainFileBlockCount = m_File->GetHead()->GetBlocksCount();
+    if (m_NextReadBlockNumber < mainFileBlockCount) {
+        m_File->GetBlock(m_NextReadBlockNumber, m_ReadBlock);
+    }
+    else {
+        auto blockId = m_NextReadBlockNumber - mainFileBlockCount;
+        m_ExtensionFile->GetBlock(blockId, m_ReadBlock);
+    }
+    m_ReadBlock->MoveToFinish();
+    m_NextReadBlockNumber--;
+}
+
+void OrderedRecordManager::ReadBlock(unsigned long long blockId) 
+{
+    m_ReadBlock->Clear();
+    auto mainFileBlockCount = m_File->GetHead()->GetBlocksCount();
+    if (blockId < mainFileBlockCount) {
+        m_File->GetBlock(blockId, m_ReadBlock);
+    }
+    else {
+        m_ExtensionFile->GetBlock(blockId, m_ReadBlock);
+    }
+    m_ReadBlock->MoveToStart();
 }
 
 bool GetRecord(Block *block, Record *record)
@@ -235,11 +518,25 @@ bool GetRecord(Block *block, Record *record, unsigned int offset)
   return block->GetRecordAt(offset, recordData);
 }
 
+function<bool(Record, Record)> MakeComparer(Schema* schema, unsigned int columnId)
+{
+    return [schema, columnId](Record a, Record b) {
+        auto valueA = schema->GetValue(a.GetData(), columnId);
+        auto valueB = schema->GetValue(b.GetData(), columnId);
+        auto column = schema->GetColumn(columnId);
+
+        return Column::Compare(column, valueA, valueB) < 0;
+    };
+}
+
 void OrderedRecordManager::Reorder()
 {
   auto schema = GetSchema();
   Record record = Record(schema);
   auto recordSize = schema->GetSize();
+
+  auto comparer = MakeComparer(schema, m_OrderedByColumnId);
+
   // TODO
   // insert blocks from m_ExtensionFile into m_File, reordering
 
@@ -259,7 +556,7 @@ void OrderedRecordManager::Reorder()
       blockRecords.push_back(record);
     }
 
-    sort(blockRecords.begin(), blockRecords.end(), OrderedRecordManager::RecordComparer);
+    sort(blockRecords.begin(), blockRecords.end(), comparer);
 
     // Write sorted data into block and add block into m_File
     block->Clear();
@@ -292,7 +589,7 @@ void OrderedRecordManager::Reorder()
     }
 
     // Sort input buffer and copy into output buffer
-    sort(inputBuffer.begin(), inputBuffer.end(), RecordComparer);
+    sort(inputBuffer.begin(), inputBuffer.end(), comparer);
     outputBuffer.insert(outputBuffer.end(), inputBuffer.begin(), inputBuffer.end());
 
     if (outputBuffer.size() >= m_RecordsPerBlock)
@@ -333,7 +630,6 @@ void OrderedRecordManager::MemoryReorder()
     auto records = vector<Record>();
     auto schema = GetSchema();
     auto record = Record(schema);
-
     auto blocksCount = m_File->GetHead()->GetBlocksCount();
 
     // Read all records from m_File
@@ -364,7 +660,8 @@ void OrderedRecordManager::MemoryReorder()
     m_ExtensionFile->SeekHead();
 
     // Sort all records
-    sort(records.begin(), records.end(), RecordComparer);
+    auto comparer = MakeComparer(schema, m_OrderedByColumnId);
+    sort(records.begin(), records.end(), comparer);
 
     // Write back to m_File
     m_File->SeekHead();
@@ -410,7 +707,34 @@ void OrderedRecordManager::SwitchFilesHard()
 
 }
 
-bool OrderedRecordManager::RecordComparer(Record a, Record b)
+Record* OrderedRecordManager::BinarySearch(span<unsigned char> target, EvalFunctionType evalFunc, unsigned long long& accessedBlocks)
 {
-  return (a.getId() < b.getId());
+    auto recordCount = m_File->GetHead()->GetBlocksCount() * m_RecordsPerBlock;
+    auto schema = GetSchema();
+    auto column = schema->GetColumn(m_OrderedByColumnId);
+
+    auto currentRecord = new Record(schema);
+
+    auto min = 0ull;
+    auto max = recordCount - 1;
+    unsigned long long pivot;
+    while (min <= max) {
+        pivot = (min + max) / 2;
+        m_NextReadBlockNumber = pivot / m_RecordsPerBlock;
+        auto recordOffset = pivot % m_RecordsPerBlock;
+
+        ReadBlock(m_NextReadBlockNumber);
+        accessedBlocks++;
+        GetRecord(m_ReadBlock, currentRecord, recordOffset);
+        auto value = schema->GetValue(currentRecord->GetData(), m_OrderedByColumnId);
+
+        auto eval = Column::Compare(column, value, target);
+
+
+        if (evalFunc(eval, pivot, min, max)) {
+            return currentRecord;
+        }
+    }
+
+    return nullptr;
 }

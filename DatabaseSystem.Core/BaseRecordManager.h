@@ -10,6 +10,7 @@ class BaseRecordManager
 public:
 	BaseRecordManager();
 	virtual void Create(string path, Schema* schema);
+	virtual void Create(string path, Schema* schema, unsigned int orderByColumnId) = 0;
 	virtual void Open(string path);
 	virtual void Close();
 	virtual Schema* GetSchema();

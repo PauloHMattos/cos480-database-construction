@@ -18,6 +18,7 @@
 #include <concepts>
 #include <fstream>
 #include <algorithm>
+#include <functional>
 
 using namespace std;
 
