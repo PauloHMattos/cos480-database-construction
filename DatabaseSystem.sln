@@ -3,11 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31919.166
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DatabaseSystem", "DatabaseSystem\DatabaseSystem.vcxproj", "{A13334CF-E898-408F-8F5B-3ABC494A5F31}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DatabaseSystem.Benchmarks", "DatabaseSystem\DatabaseSystem.vcxproj", "{A13334CF-E898-408F-8F5B-3ABC494A5F31}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DatabaseSystem.Core", "DatabaseSystem.Core\DatabaseSystem.Core.vcxproj", "{5AED0241-A4AC-4509-A91A-1BD2954CF54C}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DatabaseSystems.Heap", "DatabaseSystems.Heap\DatabaseSystems.Heap.vcxproj", "{A36E3D47-20E3-4422-801F-ED9748B68237}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DatabaseSystem.Hash", "DatabaseSystem.Hash\DatabaseSystem.Hash.vcxproj", "{AC1F9108-5453-4640-A11F-F30202CD4912}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -41,6 +43,14 @@ Global
 		{A36E3D47-20E3-4422-801F-ED9748B68237}.Release|x64.Build.0 = Release|x64
 		{A36E3D47-20E3-4422-801F-ED9748B68237}.Release|x86.ActiveCfg = Release|Win32
 		{A36E3D47-20E3-4422-801F-ED9748B68237}.Release|x86.Build.0 = Release|Win32
+		{AC1F9108-5453-4640-A11F-F30202CD4912}.Debug|x64.ActiveCfg = Debug|x64
+		{AC1F9108-5453-4640-A11F-F30202CD4912}.Debug|x64.Build.0 = Debug|x64
+		{AC1F9108-5453-4640-A11F-F30202CD4912}.Debug|x86.ActiveCfg = Debug|Win32
+		{AC1F9108-5453-4640-A11F-F30202CD4912}.Debug|x86.Build.0 = Debug|Win32
+		{AC1F9108-5453-4640-A11F-F30202CD4912}.Release|x64.ActiveCfg = Release|x64
+		{AC1F9108-5453-4640-A11F-F30202CD4912}.Release|x64.Build.0 = Release|x64
+		{AC1F9108-5453-4640-A11F-F30202CD4912}.Release|x86.ActiveCfg = Release|Win32
+		{AC1F9108-5453-4640-A11F-F30202CD4912}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
