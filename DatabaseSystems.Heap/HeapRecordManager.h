@@ -13,7 +13,7 @@
 class HeapRecordManager : public BaseRecordManager
 {
 public:
-	HeapRecordManager(size_t blockSize);
+	HeapRecordManager(size_t blockSize, int reorderCount);
 	virtual void Create(string path, Schema* schema) override;
 	virtual void Open(string path) override;
 	virtual void Close() override;
@@ -22,26 +22,29 @@ public:
 	virtual Schema* GetSchema() override;
 	virtual unsigned long long GetSize() override;
 	virtual void Insert(Record record) override;
-	virtual void Delete(unsigned long long id) override;
 
 protected:
 	// Inherited via BaseRecordManager
 	virtual void MoveToStart() override;
-	virtual bool MoveNext(Record* record, unsigned long long& accessedBlocks) override;
+	virtual bool MoveNext(Record* record, unsigned long long& accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock) override;
+	virtual void DeleteInternal(unsigned long long blockNumber, unsigned long long recordNumberInBlock) override;
+	bool GetNextRecordInFile(Record* record);
+	void Reorganize();
 
 private:
-	File<HeapFileHead>* m_File;
+	FileWrapper<HeapFileHead>* m_File;
 	Block* m_ReadBlock;
 	Block* m_WriteBlock;
 	unsigned long long m_NextReadBlockNumber;
-	list<unsigned long long> m_RemovedRecords;
 	unsigned long long m_RecordsPerBlock;
+	int m_ReorganizeCount;
 
 	void WriteAndRead();
 	void ReadNextBlock();
 
 	struct HeapRecord {
 		unsigned long long Id;
+		RecordPointer NextDeleted;
 	};
 };
 

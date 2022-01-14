@@ -11,6 +11,12 @@ public:
 	unsigned long long getId() const;
 
 	template <typename T>
+	static T* Cast(span<unsigned char>* data)
+	{
+		return (T*)data->data();
+	}
+
+	template <typename T>
 	T* As()
 	{
 		return (T*)m_Data.data();

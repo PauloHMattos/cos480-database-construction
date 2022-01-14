@@ -1,12 +1,13 @@
 #pragma once
 #include "Block.h"
-#include "FileHead.h"
 
-template<derived_from<FileHead> TFileHead>
-class File
+
+//template<derived_from<FileHead> TFileHead>
+template<typename TFileHead>
+class FileWrapper
 {
 public:
-	File(size_t blockSize) : 
+	FileWrapper(size_t blockSize) :
 		m_FileHead(nullptr), 
 		m_BlockSize(blockSize) 
 	{
@@ -35,7 +36,7 @@ public:
 	{
 		m_FilePath = path;
 		m_FileHead = head;
-		m_Stream.open(path);
+		m_Stream.open(path, ios::trunc | ios::in | ios::out | ios::binary);
 		m_Stream.seekg(0, ios::beg);
 		m_Stream.seekp(0, ios::beg);
 		head->Serialize(m_Stream);
@@ -56,15 +57,22 @@ public:
 	}
 
 
-	void AddBlock(Block* block) {
+	void AddBlock(Block* block)
+	{
 		auto blockNumber = m_FileHead->GetBlocksCount();
 		m_FileHead->SetBlocksCount(blockNumber + 1);
+		WriteBlock(block, blockNumber);
+	}
+
+	void WriteBlock(Block* block, unsigned long long blockId)
+	{
+		//Assert(blockNumber < m_FileHead->GetBlocksCount(), "Invalid block");
 
 		vector<unsigned char> tempBuffer(m_BlockSize);
 		block->Flush(tempBuffer);
 
 		m_Stream.clear();
-		m_Stream.seekp(m_FirstBlockPos + streamoff(m_BlockSize * blockNumber), ios::beg);
+		m_Stream.seekp(m_FirstBlockPos + streamoff(m_BlockSize * blockId), ios::beg);
 
 		m_Stream.write((const char*)tempBuffer.data(), m_BlockSize);
 		m_Stream.flush();
@@ -83,6 +91,30 @@ public:
 	size_t GetBlockSize()
 	{
 		return m_BlockSize;
+	}
+
+	void Trim()
+	{
+		//fstream trimmedFile;
+		//trimmedFile.open("temp.db", ios::trunc | ios::in | ios::out | ios::binary);
+		//m_FileHead->Serialize(trimmedFile);
+
+		//unsigned long long blockNumber;
+		//while (blockNumber < m_FileHead->GetBlocksCount())
+		//{
+		//	vector<unsigned char> tempBuffer(m_BlockSize);
+
+		//	m_Stream.clear();
+		//	m_Stream.seekg(m_FirstBlockPos + streamoff(m_BlockSize * blockNumber), ios::beg);
+
+		//	m_Stream.read((char*)tempBuffer.data(), m_BlockSize);
+
+		//	trimmedFile.write((const char*)tempBuffer.data(), m_BlockSize);
+		//	blockNumber++;
+		//}
+		//m_Stream.close();
+		//filesystem::copy_file("temp.db", m_FilePath);
+		//m_Stream = trimmedFile;
 	}
 
 protected:

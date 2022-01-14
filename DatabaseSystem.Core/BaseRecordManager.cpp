@@ -7,6 +7,13 @@ unsigned long long BaseRecordManager::GetLastQueryBlockAccessCount() const
 	return m_LastQueryBlockAccessCount;
 }
 
+bool BaseRecordManager::MoveNext(Record* record, unsigned long long& accessedBlocks)
+{
+	unsigned long long blockId;
+	unsigned long long recordNumberInBlock;
+	return MoveNext(record, accessedBlocks, blockId, recordNumberInBlock);
+}
+
 void BaseRecordManager::InsertMany(vector<Record> records)
 {
 	m_LastQueryBlockAccessCount = 0;
@@ -108,18 +115,45 @@ vector<Record*> BaseRecordManager::SelectWhereEquals(unsigned int columnId, span
 	return records;
 }
 
-int BaseRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned char> data)
+void BaseRecordManager::Delete(unsigned long long recordId)
 {
+	int removedCount = 0;
 	m_LastQueryBlockAccessCount = 0;
 	unsigned long long accessedBlocks = 0;
 
-	auto records = vector<unsigned long long>();
+	auto schema = GetSchema();
+	auto currentRecord = Record(schema);
+
+	unsigned long long blockId;
+	unsigned long long recordNumberInBlock;
+
+	MoveToStart();
+	while (MoveNext(&currentRecord, accessedBlocks, blockId, recordNumberInBlock))
+	{
+		m_LastQueryBlockAccessCount += accessedBlocks;
+		if (currentRecord.getId() == recordId)
+		{
+			DeleteInternal(blockId, recordNumberInBlock);
+			return;
+		}
+	}
+}
+
+int BaseRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned char> data)
+{
+	int removedCount = 0;
+	m_LastQueryBlockAccessCount = 0;
+	unsigned long long accessedBlocks = 0;
+
 	auto schema = GetSchema();
 	auto column = schema->GetColumn(columnId);
 	auto currentRecord = Record(schema);
 
+	unsigned long long blockId;
+	unsigned long long recordNumberInBlock;
+
 	MoveToStart();
-	while (MoveNext(&currentRecord, accessedBlocks))
+	while (MoveNext(&currentRecord, accessedBlocks, blockId, recordNumberInBlock))
 	{
 		m_LastQueryBlockAccessCount += accessedBlocks;
 
@@ -127,13 +161,10 @@ int BaseRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned ch
 
 		if (Column::Equals(column, value, data))
 		{
-			records.push_back(currentRecord.getId());
+			removedCount++;
+			DeleteInternal(blockId, recordNumberInBlock);
 		}
 	}
 
-	for (auto id : records) {
-		Delete(id);
-	}
-
-	return records.size();
+	return removedCount;
 }

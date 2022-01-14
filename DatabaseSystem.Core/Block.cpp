@@ -58,17 +58,94 @@ void Block::MoveToStart()
 	m_Records.MoveToStart();
 }
 
-int Block::GetRecordsCount()
+void Block::MoveToEnd()
 {
-	return m_Records.LeftLength() + m_Records.RightLength();
+	m_Records.MoveToFinish();
+}
+
+void Block::Retreat()
+{
+	m_Records.Retreat();
+}
+
+void Block::Remove()
+{
+	m_Records.Remove();
+}
+
+unsigned int Block::GetRecordsCount()
+{
+	return (unsigned int)(m_Records.LeftLength() + m_Records.RightLength());
 }
 
 bool Block::GetRecord(vector<unsigned char>* record)
 {
-	if (m_Records.RightLength()) {
+	if (m_Records.RightLength() > 0) {
 		memcpy(record->data(), m_Records.Current(0)->data(), record->size());
 		m_Records.Advance();
 		return true;
 	}
 	return false;
+}
+
+int Block::GetPosition()
+{
+	return m_Records.LeftLength();
+}
+
+bool Block::GetRecordSpan(unsigned long long recordNumberInBlock, span<unsigned char>* record)
+{
+	if (GetRecordsCount() <= recordNumberInBlock)
+	{
+		return false;
+	}
+
+	m_Records.MoveToStart();
+	//auto currentPosition = m_Records.LeftLength();
+	//auto peekPosition = recordNumberInBlock - currentPosition;
+	*record = *m_Records.Current(recordNumberInBlock);
+	return true;
+}
+
+bool Block::GetCurrentSpan(span<unsigned char>* record)
+{
+	if (GetRecordsCount() == 0)
+	{
+		return false;
+	}
+
+	*record = *m_Records.Current(0);
+	return true;
+}
+
+bool Block::RemoveRecordAt(unsigned long long recordNumber)
+{
+	if (GetRecordsCount() <= recordNumber)
+	{
+		return false;
+	}
+
+	m_Records.MoveToStart();
+	//auto currentPosition = m_Records.LeftLength();
+	//auto peekPosition = recordNumber - currentPosition;
+	auto record = m_Records.Current(recordNumber);
+
+	if (recordNumber == GetRecordsCount() - 1)
+	{
+		// Last record in block
+		// Clear (maybe not needed)
+		memset(record->data(), 0, record->size());
+		m_Records.MoveToFinish();
+		m_Records.Remove();
+	}
+	else
+	{
+		// Not the last one
+		// Swap the last with the one to remove
+		m_Records.MoveToFinish();
+		auto last = m_Records.Current(0);
+		memcpy(record->data(), last->data(), record->size());
+		m_Records.Remove();
+	}
+	return true;
 }

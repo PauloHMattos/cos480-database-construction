@@ -14,9 +14,16 @@ public:
 	void Append(span<unsigned char> data);
 
 	void MoveToStart();
-	int GetRecordsCount();
-	bool GetRecord(vector<unsigned char>* record);
+	void MoveToEnd();
+	void Retreat();
+	void Remove();
 
+	unsigned int GetRecordsCount();
+	bool GetRecord(vector<unsigned char>* record);
+	bool GetRecordSpan(unsigned long long recordNumberInBlock, span<unsigned char>* record);
+	bool GetCurrentSpan(span<unsigned char>* record);
+	int GetPosition();
+	bool RemoveRecordAt(unsigned long long recordNumber);
 private:
 	unsigned int m_RecordSize;
 	vector<unsigned char> m_BlockData;
