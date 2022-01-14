@@ -100,6 +100,20 @@ bool Block::GetRecordSpan(unsigned long long recordNumberInBlock, span<unsigned 
 		return false;
 	}
 
+
+bool Block::GetRecordBack(vector<unsigned char>* record)
+{
+	if (m_Records.LeftLength())
+	{
+		memcpy(record->data(), m_Records.Current(0)->data(), record->size());
+		m_Records.Retreat();
+		return true;
+	}
+	return false;
+}
+
+bool Block::GetCurrentSpan(span<unsigned char>* record)
+{
 	m_Records.MoveToStart();
 	//auto currentPosition = m_Records.LeftLength();
 	//auto peekPosition = recordNumberInBlock - currentPosition;
@@ -107,45 +121,17 @@ bool Block::GetRecordSpan(unsigned long long recordNumberInBlock, span<unsigned 
 	return true;
 }
 
-bool Block::GetCurrentSpan(span<unsigned char>* record)
+bool Block::MoveToAndGetRecord(unsigned int offset, vector<unsigned char>* record)
 {
-	if (GetRecordsCount() == 0)
+	MoveToStart();
+	auto size = m_Records.LeftLength() + m_Records.RightLength();
+	if (size > offset)
 	{
-		return false;
+		for (int i = 0; i < offset; i++) {
+			m_Records.Advance();
+		}
+		memcpy(record->data(), m_Records.Current(0)->data(), record->size());
+		return true;
 	}
-
-	*record = *m_Records.Current(0);
-	return true;
-}
-
-bool Block::RemoveRecordAt(unsigned long long recordNumber)
-{
-	if (GetRecordsCount() <= recordNumber)
-	{
-		return false;
-	}
-
-	m_Records.MoveToStart();
-	//auto currentPosition = m_Records.LeftLength();
-	//auto peekPosition = recordNumber - currentPosition;
-	auto record = m_Records.Current(recordNumber);
-
-	if (recordNumber == GetRecordsCount() - 1)
-	{
-		// Last record in block
-		// Clear (maybe not needed)
-		memset(record->data(), 0, record->size());
-		m_Records.MoveToFinish();
-		m_Records.Remove();
-	}
-	else
-	{
-		// Not the last one
-		// Swap the last with the one to remove
-		m_Records.MoveToFinish();
-		auto last = m_Records.Current(0);
-		memcpy(record->data(), last->data(), record->size());
-		m_Records.Remove();
-	}
-	return true;
+	return false;
 }

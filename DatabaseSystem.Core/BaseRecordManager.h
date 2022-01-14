@@ -7,6 +7,7 @@ class BaseRecordManager
 {
 public:
 	virtual void Create(string path, Schema* schema) = 0;
+	virtual void Create(string path, Schema* schema, unsigned int orderByColumnId) = 0;
 	virtual void Open(string path) = 0;
 	virtual void Close() = 0;
 	virtual Schema* GetSchema() = 0;

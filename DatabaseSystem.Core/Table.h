@@ -9,6 +9,7 @@ public:
 
 	void Load(string path);
 	void Create(string path, Schema* schema);
+	void Create(string path, Schema* schema, string orderByColumn);
 	void Close();
 
 	unsigned long long GetSize();
