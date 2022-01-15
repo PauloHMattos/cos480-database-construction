@@ -20,6 +20,7 @@ unsigned int Column::GetLength() const
 	case ColumnType::CHAR:
 		return sizeof(char) * ArraySize;
 
+	case ColumnType::VARCHAR:
 	default:
 		return 0;
 	}

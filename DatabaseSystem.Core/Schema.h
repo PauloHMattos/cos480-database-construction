@@ -14,10 +14,17 @@ public:
 
 	void Write(ostream& out, vector<unsigned char>* data);
 
+	// Var length
+	bool IsVarLengthColumn(ColumnType type);
+	unsigned int GetVarSize() const;
+
 	// Inherited via Serializable
 	void Serialize(iostream& dst) override;
 	void Deserialize(iostream& src) override;
 private:
 	vector<Column> m_Columns;
 	unsigned int m_Size;
+	unsigned int m_VarLengthColumns;
+	vector<unsigned int> m_FixedLengthColumnPos;
+	vector<unsigned int> m_VarLengthColumnPos;
 };

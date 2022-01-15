@@ -6,6 +6,8 @@
 #include "FixedRecord.h"
 #include "../DatabaseSystem.Core/Table.h"
 #include "../DatabaseSystems.Heap/HeapRecordManager.h"
+#include "../DatabaseSystems.HeapVar/HeapVarRecordManager.h"
+#include "VarRecord.h"
 
 #define SPANOF(value) span<unsigned char>((unsigned char*)&value, sizeof(value))
 
@@ -21,27 +23,29 @@ void printRecords(vector<Record*> records, string label = "Records");
 
 int main()
 {
-    auto fixedSchema = FixedRecord::CreateSchema();
+    auto fixedSchema = VarRecord::CreateSchema();
 
-    auto dbPath = "C:\\Users\\Paulo Mattos\\Documents\\Repositorios\\Pessoal\\cos480-database-construction\\DatabaseSystem\\x64\\Debug\\test.db";
-    auto heap = HeapRecordManager(4096, 10);
+    //auto dbPath = "C:\\Users\\Paulo Mattos\\Documents\\Repositorios\\Pessoal\\cos480-database-construction\\DatabaseSystem\\x64\\Debug\\test.db";
+    auto dbPath = "C:\\Users\\guilh\\Documents\\ECI\\COS480\\cos480-database-construction\\DatabaseSystem\\x64\\Debug\\test.db";
+    auto heap = HeapVarRecordManager(4096, 10);
     auto table = Table(heap);
     //table.Load(dbPath);
     table.Create(dbPath, fixedSchema);
-    auto records = Record::LoadFromCsv(*fixedSchema, "C:\\Users\\Paulo Mattos\\Desktop\\cbd.csv");
+    auto records = Record::LoadFromCsv(*fixedSchema, "C:\\Users\\guilh\\Documents\\ECI\\COS480\\cdblight.csv");
 
     insertMany(table, records);
-    /*
+
     findOne(table);
+    /*
     findAllSet(table);
     findAllBetween(table);
     findAllEquals(table);
-    //*/
+    */
 
 
-    deleteAllEquals(table);
-    findAllEquals(table);
-    insertMany(table, records);
+    //deleteAllEquals(table);
+    //findAllEquals(table);
+    //insertMany(table, records);
 
     table.Close();
 }

@@ -1,9 +1,10 @@
 #include "pch.h"
 #include "Schema.h"
+#include "Record.h"
 #include <cstdio>
 #include <sstream>
 
-Schema::Schema() : m_Size(0), m_Columns(vector<Column>())
+Schema::Schema() : m_Size(0), m_Columns(vector<Column>()), m_VarLengthColumnPos(vector<unsigned int>()), m_FixedLengthColumnPos(vector<unsigned int>())
 {
 	AddColumn("Id", ColumnType::INT64);
 }
@@ -13,11 +14,31 @@ void Schema::AddColumn(string name, ColumnType type, unsigned int arraySize)
 	auto newColumn = Column(name, type, arraySize);
 	m_Columns.push_back(newColumn);
 	m_Size += newColumn.GetLength();
+
+	// Var length column register
+	auto pos = m_Columns.size() - 1;
+	if (IsVarLengthColumn(type)) {
+		m_VarLengthColumnPos.push_back(pos);
+		m_VarLengthColumns++;
+	}
+	else {
+		m_FixedLengthColumnPos.push_back(pos);
+	}
+}
+
+bool Schema::IsVarLengthColumn(ColumnType type)
+{
+	return (int)type == ColumnType::VARCHAR;
+}
+
+unsigned int Schema::GetVarSize() const
+{
+	return m_VarLengthColumns * sizeof(struct Record::VarColumnMap);
 }
 
 unsigned int Schema::GetSize() const
 {
-	return m_Size;
+	return m_Size + GetVarSize();
 }
 
 Column Schema::GetColumn(unsigned int columnId)
@@ -39,7 +60,7 @@ unsigned int Schema::GetColumnId(string columnName) const
 
 span<unsigned char> Schema::GetValue(vector<unsigned char>* data, unsigned int columnId)
 {
-	size_t offset = 0;
+	size_t offset = 0 + GetVarSize();
 	for (size_t i = 0; i < columnId; i++)
 	{
 		auto &column = m_Columns[i];

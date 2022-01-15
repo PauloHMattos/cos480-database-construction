@@ -43,7 +43,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -159,10 +159,14 @@
   <ItemGroup>
     <ClCompile Include="Benchmarks.cpp" />
     <ClCompile Include="FixedRecord.cpp" />
+    <ClCompile Include="VarRecord.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DatabaseSystem.Core\DatabaseSystem.Core.vcxproj">
       <Project>{5aed0241-a4ac-4509-a91a-1bd2954cf54c}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\DatabaseSystems.HeapVar\DatabaseSystems.HeapVar.vcxproj">
+      <Project>{8df6302f-b592-4a7d-9ec7-be7c2d200b03}</Project>
     </ProjectReference>
     <ProjectReference Include="..\DatabaseSystems.Heap\DatabaseSystems.Heap.vcxproj">
       <Project>{a36e3d47-20e3-4422-801f-ed9748b68237}</Project>
@@ -172,6 +176,7 @@
     <ClInclude Include="FixedRecord.h" />
     <ClInclude Include="nameof.hpp" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="VarRecord.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
