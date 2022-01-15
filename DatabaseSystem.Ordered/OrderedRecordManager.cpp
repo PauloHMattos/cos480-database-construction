@@ -335,11 +335,15 @@ vector<Record *> OrderedRecordManager::SelectWhereEquals(unsigned int columnId, 
 
 void OrderedRecordManager::Delete(unsigned long long id)
 {
-  // TODO
-  // find record for id
-  // mark as deleted
-  // if empty space in file higher than percent allowed
-  // call compress
+    auto recordSize = GetSchema()->GetSize();
+    if (m_DeletedRecords * recordSize == m_MaxPercentEmptySpace * GetSize())
+    {
+        Compress();
+    }
+    auto record = Select(id);
+    auto orderedRecord = record->As<OrderedRecord>();
+    orderedRecord->Id = -1;
+    m_DeletedRecords++;
 }
 
 void OrderedRecordManager::MoveToStart()
