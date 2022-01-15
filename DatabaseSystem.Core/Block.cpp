@@ -100,6 +100,12 @@ bool Block::GetRecordSpan(unsigned long long recordNumberInBlock, span<unsigned 
 		return false;
 	}
 
+	m_Records.MoveToStart();
+	//auto currentPosition = m_Records.LeftLength();
+	//auto peekPosition = recordNumberInBlock - currentPosition;
+	*record = *m_Records.Current(recordNumberInBlock);
+	return true;
+}
 
 bool Block::GetRecordBack(vector<unsigned char>* record)
 {
@@ -114,20 +120,54 @@ bool Block::GetRecordBack(vector<unsigned char>* record)
 
 bool Block::GetCurrentSpan(span<unsigned char>* record)
 {
-	m_Records.MoveToStart();
-	//auto currentPosition = m_Records.LeftLength();
-	//auto peekPosition = recordNumberInBlock - currentPosition;
-	*record = *m_Records.Current(recordNumberInBlock);
+	if (GetRecordsCount() == 0)
+	{
+		return false;
+	}
+
+	*record = *m_Records.Current(0);
 	return true;
 }
 
-bool Block::MoveToAndGetRecord(unsigned int offset, vector<unsigned char>* record)
+bool Block::RemoveRecordAt(unsigned long long recordNumber)
+{
+	if (GetRecordsCount() <= recordNumber)
+	{
+		return false;
+	}
+
+	m_Records.MoveToStart();
+	//auto currentPosition = m_Records.LeftLength();
+	//auto peekPosition = recordNumber - currentPosition;
+	auto record = m_Records.Current(recordNumber);
+
+	if (recordNumber == GetRecordsCount() - 1)
+	{
+		// Last record in block
+		// Clear (maybe not needed)
+		memset(record->data(), 0, record->size());
+		m_Records.MoveToFinish();
+		m_Records.Remove();
+	}
+	else
+	{
+		// Not the last one
+		// Swap the last with the one to remove
+		m_Records.MoveToFinish();
+		auto last = m_Records.Current(0);
+		memcpy(record->data(), last->data(), record->size());
+		m_Records.Remove();
+	}
+	return true;
+}
+
+bool Block::MoveToAndGetRecord(unsigned int recordNumberInBlock, vector<unsigned char>* record)
 {
 	MoveToStart();
 	auto size = m_Records.LeftLength() + m_Records.RightLength();
-	if (size > offset)
+	if (GetRecordsCount() <= recordNumberInBlock)
 	{
-		for (int i = 0; i < offset; i++) {
+		for (int i = 0; i < recordNumberInBlock; i++) {
 			m_Records.Advance();
 		}
 		memcpy(record->data(), m_Records.Current(0)->data(), record->size());

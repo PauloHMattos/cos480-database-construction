@@ -44,6 +44,7 @@ private:
   unsigned long long m_RecordsPerBlock;
   unsigned int m_OrderedByColumnId;
   unsigned long long m_MaxExtensionFileSize;
+  unsigned long long m_DeletedRecords;
   float m_MaxPercentEmptySpace;
   bool m_UsingExtensionAsMain;
 
