@@ -319,7 +319,7 @@ void OrderedRecordManager::Delete(unsigned long long id)
 {
     auto schema = GetSchema();
     auto recordSize = schema->GetSize();
-    if (m_DeletedRecords * recordSize == m_MaxPercentEmptySpace * GetSize())
+    if (m_DeletedRecords * recordSize >= m_MaxPercentEmptySpace * GetSize())
     {
         Compress();
     }
