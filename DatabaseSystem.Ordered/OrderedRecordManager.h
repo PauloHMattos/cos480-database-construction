@@ -22,8 +22,6 @@ public:
     virtual void Close() override;
 
     // Inherited via BaseRecordManager
-    virtual Schema* GetSchema() override;
-    virtual unsigned long long GetSize() override;
     virtual void Insert(Record record) override;
     virtual Record* Select(unsigned long long id) override;
     virtual vector<Record*> SelectWhereBetween(unsigned int columnId, span<unsigned char> min, span<unsigned char> max) override;
@@ -35,9 +33,10 @@ public:
 
 protected:
     // Inherited via BaseRecordManager
-    virtual void MoveToStart() override;
+    virtual FileHead* CreateNewFileHead(Schema* schema) override;
+    virtual FileWrapper<FileHead>* GetFile() override;
+    virtual void ReadBlock(unsigned long long blockId) override;
     void MoveToExtension();
-    virtual bool MoveNext(Record* record, unsigned long long& accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock) override;
     bool MovePrev(Record* record, unsigned long long& accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock);
     virtual void DeleteInternal(unsigned long long blockNumber, unsigned long long recordNumberInBlock);
     bool GetNextRecordInFile(Record* record);
@@ -46,20 +45,13 @@ protected:
 private:
     FileWrapper<OrderedFileHead>* m_File;
     FileWrapper<OrderedFileHead>* m_ExtensionFile;
-    Block* m_ReadBlock;
-    Block* m_WriteBlock;
-    unsigned long long m_NextReadBlockNumber;
-    unsigned long long m_RecordsPerBlock;
     unsigned int m_OrderedByColumnId;
     unsigned long long m_MaxExtensionFileSize;
     unsigned long long m_DeletedRecords;
     float m_MaxPercentEmptySpace;
     bool m_UsingExtensionAsMain;
 
-    void WriteAndRead();
-    void ReadNextBlock();
     void ReadPrevBlock();
-    void ReadBlock(unsigned long long blockId);
     void Reorder();  // inserts records from extension file into main file, reordering
     void MemoryReorder(); // reads all records from main file and extension file into memory and reorders, for debugging
     void Compress(); // removes records marked as deleted from the file, compressing the empty space
