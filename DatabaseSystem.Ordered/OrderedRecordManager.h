@@ -16,8 +16,8 @@ class OrderedRecordManager : public BaseRecordManager
 {
 public:
     OrderedRecordManager(size_t blockSize);
+    OrderedRecordManager(size_t blockSize, unsigned int orderedByColumnId);
     virtual void Create(string path, Schema* schema) override;
-    virtual void Create(string path, Schema* schema, unsigned int orderByColumnId) override;
     virtual void Open(string path) override;
     virtual void Close() override;
 
