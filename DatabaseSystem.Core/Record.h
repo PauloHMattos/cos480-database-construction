@@ -23,7 +23,7 @@ public:
 	}
 
 	void Write(ostream& out);
-	static vector<Record> LoadFromCsv(Schema& schema, string path);
+	static vector<Record> LoadFromCsv(Schema& schema, string path, int count = -1);
 
 private:
 	Schema* m_Schema;

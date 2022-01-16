@@ -2,10 +2,10 @@
 #include "HeapRecordManager.h"
 #include "../DatabaseSystem.Core/Assertions.h"
 
-HeapRecordManager::HeapRecordManager(size_t blockSize, int reorderCount) :
+HeapRecordManager::HeapRecordManager(size_t blockSize, float maxPercentEmptySpace) :
     BaseRecordManager(),
     m_File(new FileWrapper<HeapFileHead>(blockSize)),
-    m_ReorganizeCount(reorderCount)
+    m_MaxPercentEmptySpace(maxPercentEmptySpace)
 {
 }
 
@@ -77,8 +77,8 @@ void HeapRecordManager::DeleteInternal(unsigned long long blockNumber, unsigned 
         // Remove it from m_WriteBlock
         auto removed = m_WriteBlock->RemoveRecordAt(recordNumberInBlock);
         Assert(removed, "Block was invalid");
+        return;
     }
-
 
     auto recordToRemovePointer = RecordPointer();
     recordToRemovePointer.BlockId = blockNumber;
@@ -87,16 +87,20 @@ void HeapRecordManager::DeleteInternal(unsigned long long blockNumber, unsigned 
     if (fileHead->RemovedCount > 0)
     {
         auto pointerToLastRemovedRecord = m_File->GetHead()->RemovedRecordTail;
-        ReadBlock(m_ReadBlock, pointerToLastRemovedRecord.BlockId);
+        if (blockNumber != pointerToLastRemovedRecord.BlockId)
+        {
+            ReadBlock(m_ReadBlock, pointerToLastRemovedRecord.BlockId);
+        }
 
         span<unsigned char> lastRemovedRecord;
         if (!m_ReadBlock->GetRecordSpan(pointerToLastRemovedRecord.RecordNumberInBlock, &lastRemovedRecord)) 
         {
-            Assert(false, "Oh no!");
+            Assert(false, "Could not retrieve record span");
             return;
         }
 
         auto lastRemovedRecordHeapData = Record::Cast<HeapRecord>(&lastRemovedRecord);
+        Assert(lastRemovedRecordHeapData->Id == -1, "This record was not marked as deleted");
         lastRemovedRecordHeapData->NextDeleted = recordToRemovePointer;
         WriteBlock(m_ReadBlock, pointerToLastRemovedRecord.BlockId);
     }
@@ -104,15 +108,12 @@ void HeapRecordManager::DeleteInternal(unsigned long long blockNumber, unsigned 
     {
         fileHead->RemovedRecordHead = recordToRemovePointer;
     }
-    fileHead->RemovedRecordTail = recordToRemovePointer;
-    fileHead->RemovedCount += 1;
-
 
     ReadBlock(m_ReadBlock, blockNumber);
     span<unsigned char> recordToRemove;
-    if (!m_ReadBlock->GetRecordSpan(recordNumberInBlock, &recordToRemove)) 
+    if (!m_ReadBlock->GetRecordSpan(recordNumberInBlock, &recordToRemove))
     {
-        Assert(false, "Oh no!");
+        Assert(false, "Could not retrieve record span");
         return;
     }
 
@@ -121,22 +122,19 @@ void HeapRecordManager::DeleteInternal(unsigned long long blockNumber, unsigned 
     recordToRemoveHeapData->Id = -1;
     WriteBlock(m_ReadBlock, blockNumber);
 
-    if (fileHead->RemovedCount > m_ReorganizeCount) 
-    {
-        auto prevReadBlockCount = m_LastQueryBlockReadAccessCount;
-        auto prevWriteBlockCount = m_LastQueryBlockWriteAccessCount;
-
-        Reorganize();
-
-        m_LastQueryBlockReadAccessCount += prevReadBlockCount;
-        m_LastQueryBlockWriteAccessCount += prevWriteBlockCount;
-    }
+    fileHead->RemovedRecordTail = recordToRemovePointer;
+    fileHead->RemovedCount += 1;
 }
 
 
 void HeapRecordManager::Reorganize()
 {
-    ClearAccessCount();
+    auto fileHead = m_File->GetHead();
+    auto recordSize = GetSchema()->GetSize();
+    if (fileHead->RemovedCount * recordSize < m_MaxPercentEmptySpace * GetSize())
+    {
+        return;
+    }
 
     // Write all data to the file
     if (m_WriteBlock->GetRecordsCount() > 0)
@@ -146,7 +144,6 @@ void HeapRecordManager::Reorganize()
         ReadNextBlock();
     }
 
-    auto fileHead = m_File->GetHead();
     auto totalBlocksCount = fileHead->GetBlocksCount();
     if (totalBlocksCount == 0)
     {
@@ -168,31 +165,44 @@ void HeapRecordManager::Reorganize()
             span<unsigned char> recordData;
             if (!m_ReadBlock->GetCurrentSpan(&recordData))
             {
-                Assert(false, "Oh no 2");
+                Assert(false, "Could not retrieve record span");
                 return;
+            }
+
+            if (m_WriteBlock->GetRecordsCount() == 0)
+            {
+                // == 0 indicates that we already cleared from here
+                // because of the back walking we are doing
+                fileHead->RemovedCount = 0;
+                pointerToRecordToReplace = RecordPointer();
+                pointerToRecordToReplace.BlockId = -1;
+                fileHead->RemovedRecordTail = pointerToRecordToReplace;
+                break;
             }
 
             span<unsigned char> recordToReplaceData;
             m_WriteBlock->GetRecordSpan(pointerToRecordToReplace.RecordNumberInBlock, &recordToReplaceData);
 
-            auto currentBlock = pointerToRecordToReplace.RecordNumberInBlock;
-            pointerToRecordToReplace = Record::Cast<HeapRecord>(&recordToReplaceData)->NextDeleted;
+            auto currentBlock = pointerToRecordToReplace.BlockId;
+            auto recordToReplace = Record::Cast<HeapRecord>(&recordToReplaceData);
+            Assert(recordToReplace->Id == -1, "This record was not removed");
+            pointerToRecordToReplace = recordToReplace->NextDeleted;
 
             memcpy(recordToReplaceData.data(), recordData.data(), recordData.size());
-
-            fileHead->RemovedCount--;
-            m_ReadBlock->Remove();
 
             if (currentBlock != pointerToRecordToReplace.BlockId)
             {
                 WriteBlock(m_WriteBlock, currentBlock);
                 ReadBlock(m_WriteBlock, pointerToRecordToReplace.BlockId);
             }
+            m_ReadBlock->Remove();
+            fileHead->RemovedCount--;
         }
 
         WriteBlock(m_ReadBlock, currentReadBlock);
         currentReadBlock--;
     }
+    fileHead->RemovedRecordHead = pointerToRecordToReplace;
     fileHead->SetBlocksCount(currentReadBlock);
     m_File->Trim();
 }

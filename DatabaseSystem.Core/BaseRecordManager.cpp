@@ -206,18 +206,17 @@ void BaseRecordManager::Delete(unsigned long long recordId)
 	{
 		if (currentRecord.getId() == recordId)
 		{
-			auto accessedReadBlocks = m_LastQueryBlockReadAccessCount;
-			auto accessedWriteBlocks = m_LastQueryBlockWriteAccessCount;
 			DeleteInternal(blockId, recordNumberInBlock);
-			m_LastQueryBlockReadAccessCount += accessedReadBlocks;
-			m_LastQueryBlockWriteAccessCount += accessedWriteBlocks;
-			return;
+			break;
 		}
 	}
+	Reorganize();
 }
 
 int BaseRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned char> data)
 {
+	ClearAccessCount();
+
 	int removedCount = 0;
 	unsigned long long accessedBlocks = 0;
 
@@ -232,21 +231,13 @@ int BaseRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned ch
 	while (MoveNext(&currentRecord, accessedBlocks, blockId, recordNumberInBlock))
 	{
 		auto value = schema->GetValue(currentRecord.GetData(), columnId);
-
 		if (Column::Equals(column, value, data))
 		{
-			auto accessedReadBlocks = m_LastQueryBlockReadAccessCount;
-			auto accessedWriteBlocks = m_LastQueryBlockWriteAccessCount;
-
-			removedCount++;
-			ClearAccessCount();
 			DeleteInternal(blockId, recordNumberInBlock);
-
-			m_LastQueryBlockReadAccessCount += accessedReadBlocks;
-			m_LastQueryBlockWriteAccessCount += accessedWriteBlocks;
+			removedCount++;
 		}
 	}
-
+	Reorganize();
 	return removedCount;
 }
 
@@ -327,9 +318,10 @@ bool BaseRecordManager::TryGetNextValidRecord(Record* record)
 	// through the file
 	if (m_WriteBlock->GetRecordsCount() > 0)
 	{
-		m_LastQueryBlockReadAccessCount++;
+		bool read = false;
 		while (m_WriteBlock->GetPosition() < m_WriteBlock->GetRecordsCount())
 		{
+			read = true;
 			if (m_WriteBlock->GetRecord(recordData))
 			{
 				// Here we dont have to check for the id == -1
@@ -337,6 +329,10 @@ bool BaseRecordManager::TryGetNextValidRecord(Record* record)
 				// Just remove from the list
 				return true;
 			}
+		}
+		if (read)
+		{
+			m_LastQueryBlockReadAccessCount++;
 		}
 	}
 

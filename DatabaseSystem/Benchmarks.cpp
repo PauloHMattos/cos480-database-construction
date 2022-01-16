@@ -24,11 +24,11 @@ int main()
     auto fixedSchema = FixedRecord::CreateSchema();
 
     auto dbPath = ".\\test.db";
-    auto heap = HeapRecordManager(4096, 10);
+    auto heap = HeapRecordManager(4096, 0.001);
     auto table = Table(heap);
     //table.Load(dbPath);
     table.Create(dbPath, fixedSchema);
-    auto records = Record::LoadFromCsv(*fixedSchema, ".\\cbd.csv");
+    auto records = Record::LoadFromCsv(*fixedSchema, ".\\cbd.csv", -1);
 
     insertMany(table, records);
     /*

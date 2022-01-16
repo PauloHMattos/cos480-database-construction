@@ -101,5 +101,6 @@ protected:
 	virtual FileHead* CreateNewFileHead(Schema* schema) = 0;
 	virtual FileWrapper<FileHead>* GetFile() = 0;
 	virtual void DeleteInternal(unsigned long long blockNumber, unsigned long long recordNumberInBlock) = 0;
+	virtual void Reorganize() = 0;
 };
 
