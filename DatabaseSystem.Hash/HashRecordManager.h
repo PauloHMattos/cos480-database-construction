@@ -27,20 +27,24 @@ public:
 
 protected:
 	// Inherited via BaseRecordManager
+	virtual void DeleteInternal(unsigned long long blockId, unsigned long long recordNumberInBlock) override;
 	virtual void MoveToStart() override;
-	virtual bool MoveNext(Record* record, unsigned long long& accessedBlocks) override;
+	virtual bool MoveNext(Record* record, unsigned long long& accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock) override;
 
 private:
-	File<HashFileHead>* m_File;
+	FileWrapper<HashFileHead>* m_File;
 	Block* m_ReadBlock;
 	Block* m_WriteBlock;
 	unsigned long long m_NextReadBlockNumber;
 	list<unsigned long long> m_RemovedRecords;
 	unsigned long long m_RecordsPerBlock;
+	int m_NumberOfBuckets;
 
 	void WriteAndRead();
 	void ReadNextBlock();
 	unsigned int hashFunction(unsigned long long key);
+
+	bool GetNextRecordInFile(Record* record);
 
 	struct HashRecord {
 		unsigned long long Id;

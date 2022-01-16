@@ -7,9 +7,10 @@ template<typename TFileHead>
 class FileWrapper
 {
 public:
-	FileWrapper(size_t blockSize) :
+	FileWrapper(size_t blockSize, size_t blockHeaderSize = 0) :
 		m_FileHead(nullptr), 
-		m_BlockSize(blockSize) 
+		m_BlockSize(blockSize),
+		m_BlockHeaderSize(blockHeaderSize)
 	{
 	}
 
@@ -80,7 +81,7 @@ public:
 
 	Block* CreateBlock()
 	{
-		return new Block(m_BlockSize, m_FileHead->GetSchema()->GetSize());
+		return new Block(m_BlockSize, m_FileHead->GetSchema()->GetSize(), m_BlockHeaderSize);
 	}
 
 	TFileHead* GetHead()
@@ -120,6 +121,7 @@ public:
 protected:
 	string m_FilePath;
 	size_t m_BlockSize;
+	size_t m_BlockHeaderSize;
 	fstream m_Stream;
 	TFileHead* m_FileHead;
 	streamoff m_FirstBlockPos;

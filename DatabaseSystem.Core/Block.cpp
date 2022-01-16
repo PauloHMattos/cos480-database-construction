@@ -3,7 +3,7 @@
 
 Block::Block(unsigned int blockSize, unsigned int recordSize, unsigned int headerSize) : m_RecordSize(recordSize), m_HeaderSize(headerSize)
 {
-	m_CurrentLengthInBytes = sizeof(unsigned int) + sizeof(headerSize);
+	m_CurrentLengthInBytes = sizeof(unsigned int) + headerSize;
 	m_BlockData.resize(blockSize);
 }
 
@@ -13,7 +13,7 @@ void Block::Load(span<unsigned char> data)
 	memcpy(&m_BlockData[0], &data[0], data.size());
 
 	auto recordsCount = ((unsigned int*)data.data())[0];
-	data = span(m_BlockData).subspan(sizeof(recordsCount));
+	data = span(m_BlockData).subspan(sizeof(recordsCount) + m_HeaderSize);
 
 	for (int i = 0; i < recordsCount; i++)
 	{
@@ -38,7 +38,7 @@ void Block::Clear()
 	{
 		m_Records.Remove();
 	}
-	m_CurrentLengthInBytes = sizeof(unsigned int) + sizeof(m_HeaderSize);
+	m_CurrentLengthInBytes = sizeof(unsigned int) + m_HeaderSize;
 	memset(m_BlockData.data(), 0, m_BlockData.size());
 }
 
