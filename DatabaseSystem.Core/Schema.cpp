@@ -38,7 +38,7 @@ unsigned int Schema::GetVarSize() const
 
 unsigned int Schema::GetSize() const
 {
-	return m_Size + GetVarSize();
+	return m_Size + GetVarSize() + 24;
 }
 
 Column Schema::GetColumn(unsigned int columnId)
@@ -60,35 +60,69 @@ unsigned int Schema::GetColumnId(string columnName) const
 
 span<unsigned char> Schema::GetValue(vector<unsigned char>* data, unsigned int columnId)
 {
-	size_t offset = 0 + GetVarSize();
-	for (size_t i = 0; i < columnId; i++)
+	auto& column = m_Columns[columnId];
+	if (IsVarLengthColumn(column.Type)) {
+		unsigned int pos = 0;
+		for (int i = 0;i < m_VarLengthColumnPos.size(); i++) {
+			if (m_VarLengthColumnPos[i] == columnId) {
+				pos = i;
+			}
+		}
+		
+		auto columnMaps = span(&data->data()[24], m_VarLengthColumns * sizeof(struct Record::VarColumnMap));
+		auto columnMap = (Record::VarColumnMap*)columnMaps.subspan(pos * sizeof(Record::VarColumnMap), sizeof(Record::VarColumnMap)).data();
+		auto start = (size_t)columnMap->m_Start;
+		auto length = columnMap->m_Length;
+		return span(&data->data()[start], length);
+	}
+
+	size_t offset = GetVarSize() + 24;
+	for (size_t i = 1; i < columnId; i++)
 	{
 		auto &column = m_Columns[i];
 		offset += column.GetLength();
 	}
-	auto &column = m_Columns[columnId];
+	column = m_Columns[columnId];
 	return span(&data->data()[offset], column.GetLength());
 }
 
 void Schema::Write(ostream& out, vector<unsigned char>* data)
 {
 	out << "{" << endl;
-	size_t offset = 0;
-	for (size_t i = 0; i < m_Columns.size(); i++)
+	size_t offset = GetVarSize() + 24;
+	for (size_t i = 1; i < m_FixedLengthColumnPos.size(); i++)
 	{
-		auto& column = m_Columns[i];
-		out << '\t' << column.Name << "[" << column.Type;;
-		if (column.ArraySize > 1) {
-			out << "(" << column.ArraySize << ")";
-		}
-		out << "]" << " = ";
-		auto columnValue = span(&data->data()[offset], column.GetLength());
-		Column::WriteValue(out, column, columnValue);
-		out << "," << endl;
+		ProcessOutColumn(out, data, m_FixedLengthColumnPos[i], offset, 0);
+	}
 
-		offset += column.GetLength();
+	auto columnMaps = span(&data->data()[24], m_VarLengthColumns * sizeof(struct Record::VarColumnMap));
+	for (int i = 0; i < columnMaps.size(); i += sizeof(struct Record::VarColumnMap))
+	{
+		auto columnMap = (Record::VarColumnMap*)columnMaps.subspan(i, sizeof(Record::VarColumnMap)).data();
+		auto start = (size_t)columnMap->m_Start;
+		auto length = columnMap->m_Length;
+
+		auto columnIndex = i / sizeof(struct Record::VarColumnMap);
+		ProcessOutColumn(out, data, m_VarLengthColumnPos[columnIndex], start, length);
 	}
 	out << '\b' << "}";
+}
+
+void Schema::ProcessOutColumn(ostream& out, vector<unsigned char>* data, size_t i, size_t &offset, unsigned int length)
+{
+	auto& column = m_Columns[i];
+	out << '\t' << column.Name << "[" << column.Type;;
+	if (column.ArraySize > 1) {
+		out << "(" << column.ArraySize << ")";
+	}
+	out << "]" << " = ";
+
+	auto columnLength = IsVarLengthColumn(column.Type) ? length : column.GetLength();
+	auto columnValue = span(&data->data()[offset], columnLength);
+	Column::WriteValue(out, column, columnValue);
+	out << "," << endl;
+
+	offset += column.GetLength();
 }
 
 void Schema::Serialize(iostream& dst)

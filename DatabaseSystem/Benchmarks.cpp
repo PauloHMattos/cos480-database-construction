@@ -23,31 +23,29 @@ void printRecords(vector<Record*> records, string label = "Records");
 
 int main()
 {
-    auto fixedSchema = VarRecord::CreateSchema();
+    auto varSchema = VarRecord::CreateSchema();
 
     //auto dbPath = "C:\\Users\\Paulo Mattos\\Documents\\Repositorios\\Pessoal\\cos480-database-construction\\DatabaseSystem\\x64\\Debug\\test.db";
     auto dbPath = "C:\\Users\\guilh\\Documents\\ECI\\COS480\\cos480-database-construction\\DatabaseSystem\\x64\\Debug\\test.db";
     auto heap = HeapVarRecordManager(4096, 10);
     auto table = Table(heap);
     //table.Load(dbPath);
-    table.Create(dbPath, fixedSchema);
-    auto records = Record::LoadFromCsv(*fixedSchema, "C:\\Users\\guilh\\Documents\\ECI\\COS480\\cdblight.csv");
+    table.Create(dbPath, varSchema);
+    auto records = Record::LoadFromCsv(*varSchema, "C:\\Users\\guilh\\Documents\\ECI\\COS480\\cdb.csv");
 
     insertMany(table, records);
 
-    findOne(table);
-    /*
-    findAllSet(table);
+    //findOne(table);
+    //findAllSet(table);
     findAllBetween(table);
-    findAllEquals(table);
-    */
-
+    //findAllEquals(table);
 
     //deleteAllEquals(table);
     //findAllEquals(table);
     //insertMany(table, records);
 
-    table.Close();
+    //table.Close();
+    //return 0;
 }
 
 void insertMany(Table& table, vector<Record> records)
@@ -141,11 +139,12 @@ void findAllBetween(Table& table)
 
 void findAllEquals(Table& table)
 {
-    char city[40] = "Taguatinga";
-    cout << "[FindAll] City = " << city << endl;
-
+    //char city[40] = "Taguatinga";
+    //cout << "[FindAll] City = " << city << endl;
+    
+    float weight = 117;
     auto start = std::chrono::high_resolution_clock::now();
-    auto records = table.SelectWhereEquals(NAMEOF(FixedRecord::City).str(), SPANOF(city));
+    auto records = table.SelectWhereEquals(NAMEOF(FixedRecord::Weigth).str(), SPANOF(weight));
     auto finish = std::chrono::high_resolution_clock::now();
     auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
     cout << "- Duration = " << microseconds.count() << " ms" << endl;

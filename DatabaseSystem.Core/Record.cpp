@@ -18,6 +18,11 @@ void Record::SetData(size_t index, unsigned char value)
 	m_Data[index] = value;
 }
 
+void Record::ResizeData(unsigned int newSize)
+{
+	m_Data.resize(newSize);
+}
+
 unsigned long long Record::getId() const
 {
 	return *(unsigned long long*)(m_Data.data());
@@ -27,9 +32,9 @@ void Record::Write(ostream& out) {
 	m_Schema->Write(out, GetData());
 }
 
-unsigned int Record::GetVarDataSize()
+unsigned int Record::GetDataSize()
 {
-	return m_VarData.size();
+	return m_Data.size();
 }
 
 unsigned int Record::GetHeadSize()
@@ -54,9 +59,10 @@ vector<Record> Record::LoadFromCsv(Schema& schema, string path) {
 		int columnId = 1;
 
 		// VarColumns
-		int recordSomething = 24; //TODO: MARRETADO!! Trocar! 24 bytes de Id + Struct com ponteiros de NextDeleted
 		int varColumnId = 0;
-		int varHeadOffset = recordSomething;
+		int sumCellLength = 0;
+		int varHeadOffset = 24; //TODO: MARRETADO!! Trocar! 24 bytes de Id + Struct com ponteiros de NextDeleted
+
 		size_t sizeOfVarColumnMap = sizeof(struct Record::VarColumnMap);
 		
 		string cell;
@@ -66,15 +72,17 @@ vector<Record> Record::LoadFromCsv(Schema& schema, string path) {
 			if (schema.IsVarLengthColumn(currentColumn.Type)) {
 				// Create map register
 				VarColumnMap varColMap;
-				varColMap.m_Start = schema.GetSize() + record.GetVarDataSize() + recordSomething;
-				varColMap.m_Length = cell.size();
+				varColMap.m_Start = schema.GetSize() + sumCellLength;
+				auto cellSize = cell.size();
+				varColMap.m_Length = cellSize;
+				sumCellLength += cellSize;
 
 				// Fill into record 
 				auto columnDataSpan = span(&record.GetData()->data()[varHeadOffset], sizeOfVarColumnMap);
 				memcpy(columnDataSpan.data(), &varColMap, sizeOfVarColumnMap);
 
 				// Register value into varData
-				record.m_VarData.insert(record.m_VarData.end(), cell.begin(), cell.end());
+				record.m_Data.insert(record.m_Data.end(), cell.begin(), cell.end());
 				varHeadOffset += sizeOfVarColumnMap;
 			}
 			else {
@@ -84,9 +92,6 @@ vector<Record> Record::LoadFromCsv(Schema& schema, string path) {
 			columnId++;
 		}
 
-		// Append varData into record data
-		unsigned char k = 'o';
-		record.m_Data.push_back(k);
 		result.push_back(record);
 	}
 	return result;

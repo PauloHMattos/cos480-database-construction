@@ -26,12 +26,14 @@ public:
 	static vector<Record> LoadFromCsv(Schema& schema, string path);
 
 	//Var length
-	unsigned int GetVarDataSize();
+	unsigned int GetDataSize();
 	unsigned int GetHeadSize();
 
+	void ResizeData(unsigned int newSize);
+
 	struct VarColumnMap {
-		__int8 m_Start;
-		__int8 m_Length;
+		unsigned int m_Start;
+		unsigned int m_Length;
 	};
 
 private:

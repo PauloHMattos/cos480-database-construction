@@ -21,6 +21,9 @@ public:
 	// Inherited via Serializable
 	void Serialize(iostream& dst) override;
 	void Deserialize(iostream& src) override;
+
+	void ProcessOutColumn(ostream& out, vector<unsigned char>* data, size_t i, size_t &offset, unsigned int length);
+
 private:
 	vector<Column> m_Columns;
 	unsigned int m_Size;

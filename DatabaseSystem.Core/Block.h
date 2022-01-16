@@ -24,9 +24,24 @@ public:
 	bool GetCurrentSpan(span<unsigned char>* record);
 	int GetPosition();
 	bool RemoveRecordAt(unsigned long long recordNumber);
+	size_t GetCurrentLengthInBytes();
+	unsigned int GetBlockSize() const;
+
+	struct BlockRecordMap {
+		unsigned int RecordStart;
+		unsigned int RecordLength;
+	};
+
+	unsigned int GetFinishRecordMap() const;
+	unsigned int GetStartRecords() const;
+	unsigned int GetCurrRecordSize();
+
 private:
 	unsigned int m_RecordSize;
 	vector<unsigned char> m_BlockData;
 	DoubleList<span<unsigned char>> m_Records;
 	size_t m_CurrentLengthInBytes;
+
+	unsigned int m_FinishRecordMap;
+	unsigned int m_StartRecords;
 };

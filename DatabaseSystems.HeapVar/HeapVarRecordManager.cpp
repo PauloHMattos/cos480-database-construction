@@ -91,8 +91,10 @@ void HeapVarRecordManager::Insert(Record record)
     }
 
 write_block:
-    auto recordsCount = m_WriteBlock->GetRecordsCount();
-    if (recordsCount == m_RecordsPerBlock) {
+    auto nextRecordMapSize = m_WriteBlock->GetFinishRecordMap() + sizeof(struct Block::BlockRecordMap);
+    auto newStartRecordsPos = m_WriteBlock->GetStartRecords() - record.GetDataSize();
+    int evaluate = newStartRecordsPos - nextRecordMapSize;
+    if (evaluate <= 0) {
         m_File->AddBlock(m_WriteBlock);
         m_WriteBlock->Clear();
     }
@@ -208,6 +210,9 @@ bool HeapVarRecordManager::GetNextRecordInFile(Record* record)
     auto blocksInFile = m_File->GetHead()->GetBlocksCount();
     while (blocksInFile > 0 && m_NextReadBlockNumber < blocksInFile - 1)
     {
+        auto currRecordSize = m_ReadBlock->GetCurrRecordSize();
+        if (currRecordSize > 0)
+            record->ResizeData(currRecordSize);
         while (m_ReadBlock->GetRecord(recordData))
         {
             auto recordHeapData = record->As<HeapVarRecord>();
@@ -240,59 +245,5 @@ bool HeapVarRecordManager::GetNextRecordInFile(Record* record)
 
 void HeapVarRecordManager::Reorganize()
 {
-    // Write all data to the file
-    if (m_WriteBlock->GetRecordsCount() > 0)
-    {
-        WriteAndRead();
-    }
-
-    auto fileHead = m_File->GetHead();
-    auto totalBlocksCount = fileHead->GetBlocksCount();
-    if (totalBlocksCount == 0)
-    {
-        return;
-    }
-
-    auto pointerToRecordToReplace = fileHead->RemovedRecordHead;
-    m_File->GetBlock(pointerToRecordToReplace.BlockId, m_WriteBlock);
-
-    auto currentReadBlock = totalBlocksCount - 1;
-    while (fileHead->RemovedCount > 0 && currentReadBlock > 0)
-    {
-        m_File->GetBlock(currentReadBlock, m_ReadBlock);
-        m_ReadBlock->MoveToEnd();
-
-        while (fileHead->RemovedCount > 0 && m_ReadBlock->GetRecordsCount() > 0)
-        {
-            m_ReadBlock->Retreat();
-            span<unsigned char> recordData;
-            if (!m_ReadBlock->GetCurrentSpan(&recordData))
-            {
-                Assert(false, "Oh no 2");
-                return;
-            }
-
-            span<unsigned char> recordToReplaceData;
-            m_WriteBlock->GetRecordSpan(pointerToRecordToReplace.RecordNumberInBlock, &recordToReplaceData);
-
-            auto currentBlock = pointerToRecordToReplace.RecordNumberInBlock;
-            pointerToRecordToReplace = Record::Cast<HeapVarRecord>(&recordToReplaceData)->NextDeleted;
-
-            memcpy(recordToReplaceData.data(), recordData.data(), recordData.size());
-
-            fileHead->RemovedCount--;
-            m_ReadBlock->Remove();
-
-            if (currentBlock != pointerToRecordToReplace.BlockId)
-            {
-                m_File->WriteBlock(m_WriteBlock, currentBlock);
-                m_File->GetBlock(pointerToRecordToReplace.BlockId, m_WriteBlock);
-            }
-        }
-
-        m_File->WriteBlock(m_ReadBlock, currentReadBlock);
-        currentReadBlock--;
-    }
-    fileHead->SetBlocksCount(currentReadBlock);
-    m_File->Trim();
+    
 }
