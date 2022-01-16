@@ -54,7 +54,7 @@ Schema* BaseRecordManager::GetSchema()
 
 unsigned long long BaseRecordManager::GetSize()
 {
-	auto writtenBlocks = GetFile()->GetBlockSize() * GetFile()->GetHead()->GetBlocksCount();
+	auto writtenBlocks = GetFile()->GetBlockSize() * GetBlocksCount();
 	auto recordsToBeWritten = m_WriteBlock->GetRecordsCount() * GetSchema()->GetSize();
 	return writtenBlocks + recordsToBeWritten;
 }

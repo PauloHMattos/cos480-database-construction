@@ -12,8 +12,8 @@ public:
 	virtual void Create(string path, Schema* schema);
 	virtual void Open(string path);
 	virtual void Close();
-	virtual Schema* GetSchema();
-	virtual unsigned long long GetSize();
+	Schema* GetSchema();
+	unsigned long long GetSize();
 	unsigned long long GetLastQueryBlockAccessCount() const;
 
 	// ---------------------------------------------- <INSERT> --------------------------------------------------------------------------
