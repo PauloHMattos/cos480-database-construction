@@ -10,7 +10,6 @@ OrderedRecordManager::OrderedRecordManager(size_t blockSize) :
     m_MaxExtensionFileSize(1000),
     m_DeletedRecords(0),
     m_MaxPercentEmptySpace(0.2),
-    m_UsingExtensionAsMain(false)
 {
 }
 
@@ -39,9 +38,6 @@ void OrderedRecordManager::Close()
     if (m_ExtensionFile->GetHead()->GetBlocksCount() > 0) 
     {
         Reorder();
-    }
-    if (m_UsingExtensionAsMain) {
-        SwitchFilesHard();
     }
     m_File->Close();
     m_ExtensionFile->Close();
@@ -767,29 +763,6 @@ void OrderedRecordManager::MemoryReorder()
 void OrderedRecordManager::Compress()
 {
     Reorder(); // records with id -1 will be pushed to the end
-}
-
-void OrderedRecordManager::SwitchFilesSoft()
-{
-    auto mainFilePath = m_File->GetPath();
-    auto mainFileHead = m_File->GetHead();
-
-    auto extensionFilePath = m_ExtensionFile->GetPath();
-    auto extensionFileHead = m_ExtensionFile->GetHead();
-
-    m_File->UpdatePath(extensionFilePath, extensionFileHead);
-
-    m_ExtensionFile->UpdatePath(mainFilePath, mainFileHead);
-    m_ExtensionFile->SeekHead();
-
-    m_UsingExtensionAsMain = !m_UsingExtensionAsMain;
-}
-
-void OrderedRecordManager::SwitchFilesHard()
-{
-    // TODO
-    // copy content of extension file into main file
-
 }
 
 Record* OrderedRecordManager::BinarySearch(span<unsigned char> target, EvalFunctionType evalFunc, unsigned long long& accessedBlocks)

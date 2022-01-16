@@ -58,14 +58,11 @@ private:
     unsigned long long m_MaxExtensionFileSize;
     unsigned long long m_DeletedRecords;
     float m_MaxPercentEmptySpace;
-    bool m_UsingExtensionAsMain;
 
     void ReadPrevBlock();
     void Reorder();  // inserts records from extension file into main file, reordering
     void MemoryReorder(); // reads all records from main file and extension file into memory and reorders, for debugging
     void Compress(); // removes records marked as deleted from the file, compressing the empty space
-    void SwitchFilesSoft(); // switches m_File and m_ExtensionFile paths
-    void SwitchFilesHard(); // copy m_ExtensionFile data into m_File
     Record* BinarySearch(span<unsigned char> target, EvalFunctionType evalFunc, unsigned long long& accessedBlocks);
     vector<Partition> SplitPartitions(vector<Partition> partitons);
     vector<Partition> Split(Partition p);
