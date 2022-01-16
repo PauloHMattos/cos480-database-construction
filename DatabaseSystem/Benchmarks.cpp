@@ -31,18 +31,18 @@ int main()
     auto records = Record::LoadFromCsv(*fixedSchema, "C:\\Users\\Paulo Mattos\\Desktop\\cbd.csv");
 
     insertMany(table, records);
-    //*
+    /*
     findOne(table);
     findAllSet(table);
     findAllBetween(table);
     findAllEquals(table);
-    //*/
+    /*/
 
-    /*
+    //*
     deleteAllEquals(table);
     findAllEquals(table);
     insertMany(table, records);
-    */
+    //*/
 
     table.Close();
 }
@@ -57,6 +57,8 @@ void insertMany(Table& table, vector<Record> records)
     auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
     cout << "- Duration = " << microseconds.count() << " ms" << endl;
     cout << "- Space usage = " << table.GetSize() << " Bytes" << endl;
+    cout << "- Read Blocks = " << table.GetLastQueryBlockReadAccessCount() << endl;
+    cout << "- Write Blocks = " << table.GetLastQueryBlockWriteAccessCount() << endl;
     cout << endl;
 }
 
@@ -76,8 +78,8 @@ void findOne(Table& table)
     auto finish = std::chrono::high_resolution_clock::now();
     auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
     cout << "- Duration = " << microseconds.count() << " ms" << endl;
-    cout << "- Accessed Blocks = " << table.GetLastQueryAccessedBlocksCount() << endl;
-
+    cout << "- Read Blocks = " << table.GetLastQueryBlockReadAccessCount() << endl;
+    cout << "- Write Blocks = " << table.GetLastQueryBlockWriteAccessCount() << endl;
     cout << "- Result = ";
     if (record != nullptr)
     {
@@ -115,7 +117,8 @@ void findAllSet(Table& table)
     auto finish = std::chrono::high_resolution_clock::now();
     auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
     cout << "- Duration = " << microseconds.count() << " ms" << endl;
-    cout << "- Accessed Blocks = " << table.GetLastQueryAccessedBlocksCount() << endl;
+    cout << "- Read Blocks = " << table.GetLastQueryBlockReadAccessCount() << endl;
+    cout << "- Write Blocks = " << table.GetLastQueryBlockWriteAccessCount() << endl;
     printRecords(records);
     cout << endl;
 }
@@ -131,7 +134,8 @@ void findAllBetween(Table& table)
     auto finish = std::chrono::high_resolution_clock::now();
     auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
     cout << "- Duration = " << microseconds.count() << " ms" << endl;
-    cout << "- Accessed Blocks = " << table.GetLastQueryAccessedBlocksCount() << endl;
+    cout << "- Read Blocks = " << table.GetLastQueryBlockReadAccessCount() << endl;
+    cout << "- Write Blocks = " << table.GetLastQueryBlockWriteAccessCount() << endl;
     printRecords(records);
     cout << endl;
 }
@@ -146,7 +150,8 @@ void findAllEquals(Table& table)
     auto finish = std::chrono::high_resolution_clock::now();
     auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
     cout << "- Duration = " << microseconds.count() << " ms" << endl;
-    cout << "- Accessed Blocks = " << table.GetLastQueryAccessedBlocksCount() << endl;
+    cout << "- Read Blocks = " << table.GetLastQueryBlockReadAccessCount() << endl;
+    cout << "- Write Blocks = " << table.GetLastQueryBlockWriteAccessCount() << endl;
     printRecords(records);
     cout << endl;
 }
@@ -166,7 +171,8 @@ void deleteAllEquals(Table& table)
     auto finish = std::chrono::high_resolution_clock::now();
     auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
     cout << "- Duration = " << microseconds.count() << " ms" << endl;
-    cout << "- Accessed Blocks = " << table.GetLastQueryAccessedBlocksCount() << endl;
+    cout << "- Read Blocks = " << table.GetLastQueryBlockReadAccessCount() << endl;
+    cout << "- Write Blocks = " << table.GetLastQueryBlockWriteAccessCount() << endl;
     cout << "- Deleted Records = " << records << endl;
     cout << endl;
 }

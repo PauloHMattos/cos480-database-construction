@@ -11,6 +11,8 @@ HeapRecordManager::HeapRecordManager(size_t blockSize, int reorderCount) :
 
 void HeapRecordManager::Insert(Record record)
 {
+    ClearAccessCount();
+
     auto fileHead = m_File->GetHead();
     auto heapRecord = record.As<HeapRecord>();
     heapRecord->Id = fileHead->NextId;
@@ -20,7 +22,7 @@ void HeapRecordManager::Insert(Record record)
     {
         auto pointerToRecordToReplace = fileHead->RemovedRecordHead;
         
-        m_File->GetBlock(pointerToRecordToReplace.BlockId, m_ReadBlock);
+        ReadBlock(m_ReadBlock, pointerToRecordToReplace.BlockId);
 
         auto recordToRemovePointer = RecordPointer();
 
@@ -39,8 +41,7 @@ void HeapRecordManager::Insert(Record record)
         memcpy(recordToReplace.data(), record.GetData(), GetSchema()->GetSize());
         
         recordToRemoveHeapData->NextDeleted = fileHead->RemovedRecordHead;
-        m_File->WriteBlock(m_ReadBlock, pointerToRecordToReplace.BlockId);
-
+        WriteBlock(m_ReadBlock, pointerToRecordToReplace.BlockId);
         fileHead->RemovedCount -= 1;
         return;
     }
@@ -49,7 +50,7 @@ write_block:
     auto recordsCount = m_WriteBlock->GetRecordsCount();
     if (recordsCount == m_RecordsPerBlock) 
     {
-        m_File->AddBlock(m_WriteBlock);
+        AddBlock(m_WriteBlock);
         m_WriteBlock->Clear();
     }
 
@@ -74,8 +75,8 @@ void HeapRecordManager::DeleteInternal(unsigned long long blockNumber, unsigned 
     {
         // Record to remove was not written to file
         // Remove it from m_WriteBlock
-
-        Assert(m_WriteBlock->RemoveRecordAt(recordNumberInBlock), "Block was invalid");
+        auto removed = m_WriteBlock->RemoveRecordAt(recordNumberInBlock);
+        Assert(removed, "Block was invalid");
     }
 
 
@@ -86,7 +87,7 @@ void HeapRecordManager::DeleteInternal(unsigned long long blockNumber, unsigned 
     if (fileHead->RemovedCount > 0)
     {
         auto pointerToLastRemovedRecord = m_File->GetHead()->RemovedRecordTail;
-        m_File->GetBlock(pointerToLastRemovedRecord.BlockId, m_ReadBlock);
+        ReadBlock(m_ReadBlock, pointerToLastRemovedRecord.BlockId);
 
         span<unsigned char> lastRemovedRecord;
         if (!m_ReadBlock->GetRecordSpan(pointerToLastRemovedRecord.RecordNumberInBlock, &lastRemovedRecord)) 
@@ -97,7 +98,7 @@ void HeapRecordManager::DeleteInternal(unsigned long long blockNumber, unsigned 
 
         auto lastRemovedRecordHeapData = Record::Cast<HeapRecord>(&lastRemovedRecord);
         lastRemovedRecordHeapData->NextDeleted = recordToRemovePointer;
-        m_File->WriteBlock(m_ReadBlock, pointerToLastRemovedRecord.BlockId);
+        WriteBlock(m_ReadBlock, pointerToLastRemovedRecord.BlockId);
     }
     else
     {
@@ -107,7 +108,7 @@ void HeapRecordManager::DeleteInternal(unsigned long long blockNumber, unsigned 
     fileHead->RemovedCount += 1;
 
 
-    m_File->GetBlock(blockNumber, m_ReadBlock);
+    ReadBlock(m_ReadBlock, blockNumber);
     span<unsigned char> recordToRemove;
     if (!m_ReadBlock->GetRecordSpan(recordNumberInBlock, &recordToRemove)) 
     {
@@ -118,28 +119,31 @@ void HeapRecordManager::DeleteInternal(unsigned long long blockNumber, unsigned 
     // Mark as removed
     auto recordToRemoveHeapData = Record::Cast<HeapRecord>(&recordToRemove);
     recordToRemoveHeapData->Id = -1;
-    m_File->WriteBlock(m_ReadBlock, blockNumber);
+    WriteBlock(m_ReadBlock, blockNumber);
 
     if (fileHead->RemovedCount > m_ReorganizeCount) 
     {
-        Reorganize();
-    }
-}
+        auto prevReadBlockCount = m_LastQueryBlockReadAccessCount;
+        auto prevWriteBlockCount = m_LastQueryBlockWriteAccessCount;
 
-void HeapRecordManager::WriteAndRead()
-{
-    m_File->AddBlock(m_WriteBlock);
-    m_WriteBlock->Clear();
-    ReadNextBlock();
+        Reorganize();
+
+        m_LastQueryBlockReadAccessCount += prevReadBlockCount;
+        m_LastQueryBlockWriteAccessCount += prevWriteBlockCount;
+    }
 }
 
 
 void HeapRecordManager::Reorganize()
 {
+    ClearAccessCount();
+
     // Write all data to the file
     if (m_WriteBlock->GetRecordsCount() > 0)
     {
-        WriteAndRead();
+        AddBlock(m_WriteBlock);
+        m_WriteBlock->Clear();
+        ReadNextBlock();
     }
 
     auto fileHead = m_File->GetHead();
@@ -150,12 +154,12 @@ void HeapRecordManager::Reorganize()
     }
 
     auto pointerToRecordToReplace = fileHead->RemovedRecordHead;
-    m_File->GetBlock(pointerToRecordToReplace.BlockId, m_WriteBlock);
+    ReadBlock(m_WriteBlock, pointerToRecordToReplace.BlockId);
 
     auto currentReadBlock = totalBlocksCount - 1;
     while (fileHead->RemovedCount > 0 && currentReadBlock > 0)
     {
-        m_File->GetBlock(currentReadBlock, m_ReadBlock);
+        ReadBlock(m_ReadBlock, currentReadBlock);
         m_ReadBlock->MoveToEnd();
 
         while (fileHead->RemovedCount > 0 && m_ReadBlock->GetRecordsCount() > 0)
@@ -181,12 +185,12 @@ void HeapRecordManager::Reorganize()
 
             if (currentBlock != pointerToRecordToReplace.BlockId)
             {
-                m_File->WriteBlock(m_WriteBlock, currentBlock);
-                m_File->GetBlock(pointerToRecordToReplace.BlockId, m_WriteBlock);
+                WriteBlock(m_WriteBlock, currentBlock);
+                ReadBlock(m_WriteBlock, pointerToRecordToReplace.BlockId);
             }
         }
 
-        m_File->WriteBlock(m_ReadBlock, currentReadBlock);
+        WriteBlock(m_ReadBlock, currentReadBlock);
         currentReadBlock--;
     }
     fileHead->SetBlocksCount(currentReadBlock);
