@@ -7,9 +7,9 @@ OrderedRecordManager::OrderedRecordManager(size_t blockSize) :
     m_File(new FileWrapper<OrderedFileHead>(blockSize)),
     m_ExtensionFile(new FileWrapper<OrderedFileHead>(blockSize)),
     m_OrderedByColumnId(0),
-    m_MaxExtensionFileSize(1000),
+    m_MaxExtensionFileSize(2),
     m_DeletedRecords(0),
-    m_MaxPercentEmptySpace(0.2),
+    m_MaxPercentEmptySpace(0.2)
 {
 }
 
@@ -907,10 +907,10 @@ Partition OrderedRecordManager::Merge(Partition p1, Partition p2)
     auto comparer = MakeComparer(schema, m_OrderedByColumnId);
 
     auto recordPointer1 = p1.firstBlock * m_RecordsPerBlock;
-    auto lastRecordP1 = p1.firstBlock + p1.blocksCount*m_RecordsPerBlock - 1;
+    auto lastRecordP1 = recordPointer1 + p1.blocksCount*m_RecordsPerBlock - 1;
 
     auto recordPointer2 = p2.firstBlock * m_RecordsPerBlock;
-    auto lastRecordP2 = p2.firstBlock + p2.blocksCount*m_RecordsPerBlock - 1;
+    auto lastRecordP2 = recordPointer2 + p2.blocksCount*m_RecordsPerBlock - 1;
 
     auto readBlock1 = m_File->CreateBlock();
     auto record1 = Record(schema);
