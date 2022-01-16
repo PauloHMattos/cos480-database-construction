@@ -10,10 +10,12 @@ void FileHead::Serialize(iostream& dst)
 {
 	m_Schema->Serialize(dst);
 	dst << m_BlocksCount << endl;
+	dst << NextId << endl;
 }
 
 void FileHead::Deserialize(iostream& src)
 {
 	m_Schema->Deserialize(src);
 	src >> m_BlocksCount;
+	src >> NextId;
 }

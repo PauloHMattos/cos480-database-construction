@@ -20,7 +20,6 @@ class HeapFileHead : public FileHead
 public:
 	HeapFileHead(Schema* schema);
 	~HeapFileHead();
-	unsigned long long NextId;
 	unsigned long long RemovedCount;
 	RecordPointer RemovedRecordHead;
 	RecordPointer RemovedRecordTail;

@@ -234,7 +234,7 @@ void BaseRecordManager::MoveToStart()
 
 bool BaseRecordManager::MoveNext(Record* record, unsigned long long& accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock)
 {
-	auto blocksCount = GetFile()->GetHead()->GetBlocksCount();
+	auto blocksCount = GetBlocksCount();
 	auto initialBlock = m_NextReadBlockNumber;
 	if (m_NextReadBlockNumber == 0)
 	{
@@ -256,13 +256,23 @@ bool BaseRecordManager::MoveNext(Record* record, unsigned long long& accessedBlo
 	return returnVal;
 }
 
+unsigned long long BaseRecordManager::GetBlocksCount()
+{
+	return GetFile()->GetHead()->GetBlocksCount();
+}
+
 void BaseRecordManager::ReadNextBlock()
 {
+	ReadBlock(m_NextReadBlockNumber);
+	m_NextReadBlockNumber++;
+}
+
+void BaseRecordManager::ReadBlock(unsigned long long blockId)
+{
 	m_ReadBlock->Clear();
-	GetFile()->GetBlock(m_NextReadBlockNumber, m_ReadBlock);
+	GetFile()->GetBlock(blockId, m_ReadBlock);
 	m_ReadBlock->MoveToStart();
 	m_WriteBlock->MoveToStart();
-	m_NextReadBlockNumber++;
 }
 
 bool BaseRecordManager::TryGetNextValidRecord(Record* record)
@@ -288,7 +298,7 @@ bool BaseRecordManager::TryGetNextValidRecord(Record* record)
 		}
 	}
 
-	auto blocksInFile = GetFile()->GetHead()->GetBlocksCount();
+	auto blocksInFile = GetBlocksCount();
 	while (blocksInFile > 0 && m_NextReadBlockNumber < blocksInFile - 1)
 	{
 		while (m_ReadBlock->GetRecord(recordData))

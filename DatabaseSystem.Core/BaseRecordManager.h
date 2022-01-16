@@ -84,7 +84,10 @@ protected:
 	unsigned long long m_NextReadBlockNumber;
 	unsigned long long m_LastQueryBlockAccessCount;
 
-	void ReadNextBlock();
+	virtual unsigned long long GetBlocksCount();
+	virtual void ReadNextBlock();
+	virtual void ReadBlock(unsigned long long blockId);
+	
 	bool TryGetNextValidRecord(Record* record);
 	void MoveToStart();
 	bool MoveNext(Record* record, unsigned long long& accessedBlocks);
