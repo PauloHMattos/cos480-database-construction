@@ -11,6 +11,7 @@ HashRecordManager::HashRecordManager(size_t blockSize, unsigned int numberOfBuck
     m_RecordsPerBlock(0),
     m_NumberOfBuckets(numberOfBuckets)
 {
+    m_File->GetHead()->SetBucketCount(numberOfBuckets);
 }
 
 void HashRecordManager::Create(string path, Schema* schema)
@@ -123,7 +124,7 @@ void HashRecordManager::Insert(Record record)
     {
         memcpy(m_ReadBlock->GetHeader().data(), (const char*)&nextBucketBlockNumber, sizeof(nextBucketBlockNumber));
         m_File->WriteBlock(m_ReadBlock, previousBucketBlockNumber);
-    }
+}
     m_File->GetHead()->Buckets[bucketHash].blockNumber = previousBucketBlockNumber;
 }
 
@@ -155,18 +156,26 @@ bool HashRecordManager::MoveNext(Record* record, unsigned long long& accessedBlo
         {
             ReadNextBlock();
         }
-    }
+        else
+        {
+            //have nothing in file and m_WriteBlock may contain some data
+            if (m_WriteBlock->GetRecordsCount() > 0)
+            {
+                //m_WriteBlock has some records - write it to file and read from there
+                WriteAndRead();
+            }
 
     bool returnVal = GetNextRecordInFile(record);
 
     if (returnVal)
-    {
+            {
         recordNumberInBlock = m_ReadBlock->GetPosition() - 1;
         blockId = m_NextReadBlockNumber - 1;
-    }
+            }
     accessedBlocks = m_NextReadBlockNumber - initialBlock;
     return returnVal;
-}
+        }
+    }
 
 bool HashRecordManager::GetNextRecordInFile(Record* record)
 {
@@ -182,7 +191,9 @@ bool HashRecordManager::GetNextRecordInFile(Record* record)
                 return true;
             }
         }
-        ReadNextBlock();
+        else if (m_NextReadBlockNumber < blocksCount) {
+            // Reads next block
+            ReadNextBlock();
     }
     
     // Not found in the file
@@ -198,7 +209,9 @@ bool HashRecordManager::GetNextRecordInFile(Record* record)
                 // When we remove records from the write block we dont set the id.
                 // Just remove from the list
                 return true;
-            }
+        }
+        else {
+            Assert(false, "Should not reached this line");
         }
     }
     return false;
