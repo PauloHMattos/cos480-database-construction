@@ -16,6 +16,11 @@ OrderedRecordManager::OrderedRecordManager(size_t blockSize) : m_File(new FileWr
 {
 }
 
+OrderedRecordManager::OrderedRecordManager(size_t blockSize, unsigned int orderedByColumnId) : OrderedRecordManager(blockSize)
+{
+    m_OrderedByColumnId = orderedByColumnId;
+}
+
 void OrderedRecordManager::Create(string path, Schema *schema)
 {
     m_File->NewFile(path, new OrderedFileHead(schema));
@@ -29,12 +34,6 @@ void OrderedRecordManager::Create(string path, Schema *schema)
 
     m_ReadBlock = m_File->CreateBlock();
     m_WriteBlock = m_ExtensionFile->CreateBlock();
-}
-
-void OrderedRecordManager::Create(string path, Schema* schema, unsigned int orderedByColumnId)
-{
-    Create(path, schema);
-    m_OrderedByColumnId = orderedByColumnId;
 }
 
 void OrderedRecordManager::Open(string path)
