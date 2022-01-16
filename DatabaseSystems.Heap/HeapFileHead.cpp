@@ -2,7 +2,8 @@
 #include "HeapFileHead.h"
 
 HeapFileHead::HeapFileHead(Schema* schema) : 
-    RemovedRecordHead(RecordPointer()), 
+    RemovedRecordHead(RecordPointer()),
+    RemovedRecordTail(RecordPointer()),
     RemovedCount(0)
 {
     m_Schema = schema;

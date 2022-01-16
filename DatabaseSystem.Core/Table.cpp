@@ -26,9 +26,14 @@ Schema* Table::GetSchema()
     return m_RecordManager.GetSchema();
 }
 
-unsigned long long Table::GetLastQueryAccessedBlocksCount()
+unsigned long long Table::GetLastQueryBlockReadAccessCount()
 {
-    return m_RecordManager.GetLastQueryBlockAccessCount();
+    return m_RecordManager.GetLastQueryBlockReadAccessCount();
+}
+
+unsigned long long Table::GetLastQueryBlockWriteAccessCount()
+{
+    return m_RecordManager.GetLastQueryBlockWriteAccessCount();
 }
 
 void Table::Create(string path, Schema* schema)
