@@ -94,6 +94,11 @@ public:
 		return m_BlockSize;
 	}
 
+	size_t GetBlockHeaderSize()
+	{
+		return m_BlockHeaderSize;
+	}
+
 	void Trim()
 	{
 		//fstream trimmedFile;

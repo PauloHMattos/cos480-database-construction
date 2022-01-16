@@ -16,35 +16,23 @@ public:
 	HashRecordManager(size_t blockSize, unsigned int numberOfBuckets);
 	virtual void Create(string path, Schema* schema) override;
 	virtual void Open(string path) override;
-	virtual void Close() override;
 
 	// Inherited via BaseRecordManager
-	virtual Schema* GetSchema() override;
-	virtual unsigned long long GetSize() override;
 	virtual Record* Select(unsigned long long id) override;
 	virtual void Insert(Record record) override;
 	virtual void Delete(unsigned long long id) override;
 
 protected:
 	// Inherited via BaseRecordManager
+	virtual FileHead* CreateNewFileHead(Schema* schema) override;
+	virtual FileWrapper<FileHead>* GetFile() override;
 	virtual void DeleteInternal(unsigned long long blockId, unsigned long long recordNumberInBlock) override;
-	virtual void MoveToStart() override;
-	virtual bool MoveNext(Record* record, unsigned long long& accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock) override;
 
 private:
 	FileWrapper<HashFileHead>* m_File;
-	Block* m_ReadBlock;
-	Block* m_WriteBlock;
-	unsigned long long m_NextReadBlockNumber;
-	list<unsigned long long> m_RemovedRecords;
-	unsigned long long m_RecordsPerBlock;
 	int m_NumberOfBuckets;
 
-	void WriteAndRead();
-	void ReadNextBlock();
 	unsigned int hashFunction(unsigned long long key);
-
-	bool GetNextRecordInFile(Record* record);
 
 	struct HashRecord {
 		unsigned long long Id;

@@ -17,7 +17,7 @@ void BaseRecordManager::Create(string path, Schema* schema)
 
 	auto schemaSize = GetSchema()->GetSize();
 	auto blockLength = GetFile()->GetBlockSize();
-	auto blockContentLength = GetFile()->GetBlockSize() - sizeof(unsigned int);
+	auto blockContentLength = GetFile()->GetBlockSize() - sizeof(unsigned int) - GetFile()->GetBlockHeaderSize();
 	m_RecordsPerBlock = floor(blockContentLength / schemaSize);
 
 	m_ReadBlock = GetFile()->CreateBlock();

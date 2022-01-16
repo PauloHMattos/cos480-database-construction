@@ -6,6 +6,7 @@
 #include "FixedRecord.h"
 #include "../DatabaseSystem.Core/Table.h"
 #include "../DatabaseSystems.Heap/HeapRecordManager.h"
+#include "../DatabaseSystem.Hash/HashRecordManager.h"
 
 #define SPANOF(value) span<unsigned char>((unsigned char*)&value, sizeof(value))
 
@@ -24,7 +25,7 @@ int main()
     auto fixedSchema = FixedRecord::CreateSchema();
 
     auto dbPath = "C:\\Users\\Paulo Mattos\\Documents\\Repositorios\\Pessoal\\cos480-database-construction\\DatabaseSystem\\x64\\Debug\\test.db";
-    auto heap = HeapRecordManager(4096, 10);
+    auto heap = HashRecordManager(4096, 10);
     auto table = Table(heap);
     //table.Load(dbPath);
     table.Create(dbPath, fixedSchema);
