@@ -40,6 +40,7 @@ int main()
     deleteAllEquals(table);
     heap.Reorganize();
     getAllBlockRecords(table);
+    //getAllBlockRecords(table);
     //findOne(table);
     //findAllSet(table);
     //findAllBetween(table);

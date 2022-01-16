@@ -242,14 +242,12 @@ long long Block::GetVarRecordId(unsigned int recordNumber)
 
 unsigned int Block::GetRecordPos(unsigned int recordNumber)
 {
-	auto k = ((unsigned int*)m_BlockData.data())[m_MetaDataCount + (2 * (recordNumber - 1))];
-	return k;
+	return ((unsigned int*)m_BlockData.data())[m_MetaDataCount + (2 * (recordNumber - 1))];
 }
 
 unsigned int Block::GetRecordLength(unsigned int recordNumber)
 {
-	auto k = ((unsigned int*)m_BlockData.data())[m_MetaDataCount + (2 * (recordNumber - 1)) + 1];
-	return k;
+	return ((unsigned int*)m_BlockData.data())[m_MetaDataCount + (2 * (recordNumber - 1)) + 1];
 }
 
 void Block::UpdateStartRecordPos(unsigned int newPos)

@@ -82,6 +82,7 @@ vector<Record*> BaseRecordManager::SelectWhereBetween(unsigned int columnId, spa
 		if (Column::Compare(column, value, min) >= 0 && Column::Compare(column, value, max) <= 0)
 		{
 			auto newRecord = new Record(schema);
+			newRecord->ResizeData(424);
 			memcpy(newRecord->GetData()->data(), currentRecord.GetData()->data(), schema->GetSize());
 			records.push_back(newRecord);
 		}

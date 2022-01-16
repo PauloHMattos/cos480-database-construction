@@ -245,59 +245,59 @@ bool HeapVarRecordManager::GetNextRecordInFile(Record* record)
 
 void HeapVarRecordManager::Reorganize()
 {
-	auto blockId = 0;
+
 	auto fileHead = m_File->GetHead();
 	auto blocksCount = fileHead->GetBlocksCount();
 	auto tempBuffer = vector<unsigned char>(m_File->GetBlockSize());
 
-	m_File->GetBlock(blockId, m_ReadBlock);
+	for (int blockId = 0;blockId < blocksCount; blockId++) {
+		m_File->GetBlock(blockId, m_ReadBlock);
 
-	auto recordsCount = m_ReadBlock->GetRecordsCount();
+		auto recordsCount = m_ReadBlock->GetRecordsCount();
 
-	unsigned int leftPointer = m_ReadBlock->GetRecordPos(recordsCount);
-	unsigned int rightPointer = leftPointer;
-	unsigned int bytesShifted = 0;
-	unsigned int bytesShiftedSum = 0;
+		unsigned int leftPointer = m_ReadBlock->GetRecordPos(recordsCount);
+		unsigned int rightPointer = leftPointer;
+		unsigned int bytesShifted = 0;
+		unsigned int bytesShiftedSum = 0;
 
-	auto removedRecords = vector<int>();
+		auto removedRecords = vector<int>();
 
-	m_ReadBlock->PrintRecordMapper();
-	for (int recordNumber = recordsCount; recordNumber >= 0; recordNumber--) {
-		auto id = m_ReadBlock->GetVarRecordId(recordNumber);
-		auto recordLength = m_ReadBlock->GetRecordLength(recordNumber);
+		//m_ReadBlock->PrintRecordMapper();
+		for (int recordNumber = recordsCount; recordNumber >= 0; recordNumber--) {
+			auto id = m_ReadBlock->GetVarRecordId(recordNumber);
+			auto recordLength = m_ReadBlock->GetRecordLength(recordNumber);
+			if (id == -1) {
+				//TODO: Case when first sequence of blocks was ddeleted
+				removedRecords.push_back(recordNumber);
+				bytesShifted = recordLength;
+				bytesShiftedSum += bytesShifted;
 
-		if (id == -1) {
-			//TODO: Case when first sequence of blocks was deleted
-			removedRecords.push_back(recordNumber);
-			bytesShifted = recordLength;
-			bytesShiftedSum += bytesShifted;
+				m_ReadBlock->ShiftBytes(tempBuffer, leftPointer, rightPointer - leftPointer, bytesShifted, false);
+				UpdateRecordRangePos(recordNumber, bytesShifted);
+				leftPointer += bytesShifted;
+				rightPointer += bytesShifted;
 
-			m_ReadBlock->ShiftBytes(tempBuffer, leftPointer, rightPointer - leftPointer, bytesShifted, false);
-			UpdateRecordRangePos(recordNumber, bytesShifted);
-			leftPointer += bytesShifted;
-			rightPointer += bytesShifted;
-
+			}
+			else {
+				rightPointer += recordLength;
+			}
 		}
-		else {
-			rightPointer += recordLength;
+
+		auto newPos = m_ReadBlock->GetStartRecords() - bytesShiftedSum;
+		m_ReadBlock->UpdateStartRecordPos(newPos);
+		auto newCount = removedRecords.size();
+		m_ReadBlock->UpdateRecordsCount(recordsCount - newCount);
+
+		// Update record map, add shifted bytes to initialPos + shift map removing record maps of deleted records
+		for (int i = 0; i < removedRecords.size(); i++) {
+			auto removedRecordNumber = removedRecords[i] - 1;
+			m_ReadBlock->RemoveRecordMap(tempBuffer, removedRecordNumber);
 		}
+
+		//m_ReadBlock->PrintRecordMapper();
+		memset(tempBuffer.data(), 0, sizeof(tempBuffer));
+		m_File->WriteBlock(m_ReadBlock, blockId);
 	}
-
-	auto newPos = m_ReadBlock->GetStartRecords() - bytesShiftedSum;
-	m_ReadBlock->UpdateStartRecordPos(newPos);
-	auto newCount = removedRecords.size();
-	m_ReadBlock->UpdateRecordsCount(recordsCount - newCount);
-
-	// Update record map, add shifted bytes to initialPos + shift map removing record maps of deleted records
-	for (int i = 0; i < removedRecords.size(); i++) {
-		//print mapper
-		auto removedRecordNumber = removedRecords[i] - 1;
-		m_ReadBlock->RemoveRecordMap(tempBuffer, removedRecordNumber);
-	}
-
-	m_ReadBlock->PrintRecordMapper();
-	memset(tempBuffer.data(), 0, sizeof(tempBuffer));
-	m_File->WriteBlock(m_ReadBlock, blockId);
 }
 
 void HeapVarRecordManager::UpdateRecordRangePos(unsigned int maxRecord, unsigned int bytesShifted)
