@@ -6,6 +6,7 @@
 #include "FixedRecord.h"
 #include "../DatabaseSystem.Core/Table.h"
 #include "../DatabaseSystems.Heap/HeapRecordManager.h"
+#include "../DatabaseSystem.Ordered/OrderedRecordManager.h"
 
 #define SPANOF(value) span<unsigned char>((unsigned char*)&value, sizeof(value))
 
@@ -24,24 +25,25 @@ int main()
     auto fixedSchema = FixedRecord::CreateSchema();
 
     auto dbPath = "C:\\Users\\Paulo Mattos\\Documents\\Repositorios\\Pessoal\\cos480-database-construction\\DatabaseSystem\\x64\\Debug\\test.db";
-    auto heap = HeapRecordManager(4096, 10);
+    auto heap = OrderedRecordManager(4096, 0);
     auto table = Table(heap);
     //table.Load(dbPath);
     table.Create(dbPath, fixedSchema);
     auto records = Record::LoadFromCsv(*fixedSchema, "C:\\Users\\Paulo Mattos\\Desktop\\cbd.csv");
 
     insertMany(table, records);
-    /*
+    //*
     findOne(table);
     findAllSet(table);
     findAllBetween(table);
     findAllEquals(table);
     //*/
 
-
+    /*
     deleteAllEquals(table);
     findAllEquals(table);
     insertMany(table, records);
+    */
 
     table.Close();
 }

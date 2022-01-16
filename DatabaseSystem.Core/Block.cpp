@@ -165,7 +165,7 @@ bool Block::MoveToAndGetRecord(unsigned int recordNumberInBlock, vector<unsigned
 {
 	MoveToStart();
 	auto size = m_Records.LeftLength() + m_Records.RightLength();
-	if (GetRecordsCount() <= recordNumberInBlock)
+	if (recordNumberInBlock <= GetRecordsCount())
 	{
 		for (int i = 0; i < recordNumberInBlock; i++) {
 			m_Records.Advance();

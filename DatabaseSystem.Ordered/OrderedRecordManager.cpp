@@ -2,17 +2,15 @@
 #include "OrderedRecordManager.h"
 #include "../DatabaseSystem.Core/Assertions.h"
 
-OrderedRecordManager::OrderedRecordManager(size_t blockSize) : m_File(new FileWrapper<OrderedFileHead>(blockSize)),
-                                                               m_ExtensionFile(new FileWrapper<OrderedFileHead>(blockSize)),
-                                                               m_ReadBlock(nullptr),
-                                                               m_WriteBlock(nullptr),
-                                                               m_NextReadBlockNumber(0),
-                                                               m_OrderedByColumnId(0),
-                                                               m_MaxExtensionFileSize(1000),
-                                                               m_DeletedRecords(0),
-                                                               m_MaxPercentEmptySpace(0.2),
-                                                               m_RecordsPerBlock(0), 
-                                                               m_UsingExtensionAsMain(false)
+OrderedRecordManager::OrderedRecordManager(size_t blockSize) : 
+    BaseRecordManager(),
+    m_File(new FileWrapper<OrderedFileHead>(blockSize)),
+    m_ExtensionFile(new FileWrapper<OrderedFileHead>(blockSize)),
+    m_OrderedByColumnId(0),
+    m_MaxExtensionFileSize(1000),
+    m_DeletedRecords(0),
+    m_MaxPercentEmptySpace(0.2),
+    m_UsingExtensionAsMain(false)
 {
 }
 
@@ -23,32 +21,16 @@ OrderedRecordManager::OrderedRecordManager(size_t blockSize, unsigned int ordere
 
 void OrderedRecordManager::Create(string path, Schema *schema)
 {
-    m_File->NewFile(path, new OrderedFileHead(schema));
+    BaseRecordManager::Create(path, schema);
     auto extension_path = path.append(".extension");
-    m_ExtensionFile->NewFile(extension_path, new OrderedFileHead(schema));
-
-    auto schemaSize = GetSchema()->GetSize();
-    auto blockLength = m_File->GetBlockSize();
-    auto blockContentLength = m_File->GetBlockSize() - sizeof(unsigned int);
-    m_RecordsPerBlock = floor(blockContentLength / schemaSize);
-
-    m_ReadBlock = m_File->CreateBlock();
-    m_WriteBlock = m_ExtensionFile->CreateBlock();
+    m_ExtensionFile->NewFile(extension_path, (OrderedFileHead*)CreateNewFileHead(schema));
 }
 
 void OrderedRecordManager::Open(string path)
 {
-    m_File->Open(path, new OrderedFileHead());
+    BaseRecordManager::Open(path);
     auto extension_path = path.append(".extension");
-    m_ExtensionFile->Open(extension_path, new OrderedFileHead());
-
-    auto schemaSize = GetSchema()->GetSize();
-    auto blockLength = m_File->GetBlockSize();
-    auto blockContentLength = m_File->GetBlockSize() - sizeof(unsigned int);
-    m_RecordsPerBlock = floor(blockContentLength / schemaSize);
-
-    m_ReadBlock = m_File->CreateBlock();
-    m_WriteBlock = m_ExtensionFile->CreateBlock();
+    m_ExtensionFile->Open(extension_path, (OrderedFileHead*)CreateNewFileHead(nullptr));
 }
 
 void OrderedRecordManager::Close()
@@ -452,37 +434,6 @@ int OrderedRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned
 
 }
 
-void OrderedRecordManager::MoveToStart()
-{
-    m_NextReadBlockNumber = 0;
-}
-
-bool OrderedRecordManager::MoveNext(Record *record, unsigned long long &accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock)
-{
-    auto mainBlocksCount = m_File->GetHead()->GetBlocksCount();
-    auto blocksCount = mainBlocksCount + m_ExtensionFile->GetHead()->GetBlocksCount();
-    auto initialBlock = m_NextReadBlockNumber;
-
-    if (m_NextReadBlockNumber == 0 || m_NextReadBlockNumber == mainBlocksCount)
-    {
-        // did not start to read before or at start of extension file
-        if (blocksCount > 0)
-        {
-            ReadNextBlock();
-        }
-    }
-
-    bool returnVal = GetNextRecordInFile(record);
-
-    if (returnVal) 
-    {
-        recordNumberInBlock = m_ReadBlock->GetPosition() - 1;
-        blockId = m_NextReadBlockNumber - 1;
-    }
-    accessedBlocks = m_NextReadBlockNumber - initialBlock;
-    return returnVal;
-}
-
 bool OrderedRecordManager::MovePrev(Record* record, unsigned long long& accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock)
 {
     auto mainBlocksCount = m_File->GetHead()->GetBlocksCount();
@@ -618,28 +569,6 @@ void OrderedRecordManager::MoveToExtension()
     m_NextReadBlockNumber = m_File->GetHead()->GetBlocksCount();
 }
 
-void OrderedRecordManager::WriteAndRead()
-{
-    m_ExtensionFile->AddBlock(m_WriteBlock);
-    m_WriteBlock->Clear();
-    ReadNextBlock();
-}
-
-void OrderedRecordManager::ReadNextBlock()
-{
-    m_ReadBlock->Clear();
-    auto mainFileBlockCount = m_File->GetHead()->GetBlocksCount();
-    if (m_NextReadBlockNumber < mainFileBlockCount) {
-        m_File->GetBlock(m_NextReadBlockNumber, m_ReadBlock);
-    }
-    else {
-        auto blockId = m_NextReadBlockNumber - mainFileBlockCount;
-        m_ExtensionFile->GetBlock(blockId, m_ReadBlock);
-    }
-    m_ReadBlock->MoveToStart();
-    m_NextReadBlockNumber++;
-}
-
 void OrderedRecordManager::ReadPrevBlock()
 {
     m_ReadBlock->Clear();
@@ -655,7 +584,17 @@ void OrderedRecordManager::ReadPrevBlock()
     m_NextReadBlockNumber--;
 }
 
-void OrderedRecordManager::ReadBlock(unsigned long long blockId) 
+FileHead* OrderedRecordManager::CreateNewFileHead(Schema* schema)
+{
+    return new OrderedFileHead(schema);
+}
+
+FileWrapper<FileHead>* OrderedRecordManager::GetFile()
+{
+    return (FileWrapper<FileHead>*)m_File;
+}
+
+void OrderedRecordManager::ReadBlock(unsigned long long blockId)
 {
     m_ReadBlock->Clear();
     auto mainFileBlockCount = m_File->GetHead()->GetBlocksCount();
