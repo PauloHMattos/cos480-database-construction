@@ -7,11 +7,9 @@
 class Bucket
 {
 public:
-	Bucket(unsigned int bucketNumber);
+	Bucket();
 	~Bucket();
-	unsigned int bucketNumber;
-	unsigned int recordsCount;
-	Block* block;
-	unsigned int blockNumber;
-	vector<unsigned long long> keys;
+	unsigned int hash;
+	//unsigned int recordsCount;
+	unsigned long long blockNumber;
 };
