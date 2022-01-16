@@ -6,6 +6,7 @@
 #include "FixedRecord.h"
 #include "../DatabaseSystem.Core/Table.h"
 #include "../DatabaseSystems.Heap/HeapRecordManager.h"
+#include "../DatabaseSystem.Ordered/OrderedRecordManager.h"
 
 #define SPANOF(value) span<unsigned char>((unsigned char*)&value, sizeof(value))
 
@@ -24,7 +25,7 @@ int main()
     auto fixedSchema = FixedRecord::CreateSchema();
 
     auto dbPath = ".\\test.db";
-    auto heap = HeapRecordManager(4096, 0.001);
+    auto heap = OrderedRecordManager(4096, 0);
     auto table = Table(heap);
     //table.Load(dbPath);
     table.Create(dbPath, fixedSchema);
