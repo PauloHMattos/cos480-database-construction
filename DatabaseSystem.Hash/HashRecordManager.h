@@ -37,8 +37,6 @@ private:
 	unsigned long long m_NextReadBlockNumber;
 	list<unsigned long long> m_RemovedRecords;
 	unsigned long long m_RecordsPerBlock;
-	unsigned int m_NumberOfBuckets;
-	vector<Bucket> m_Buckets;
 
 	void WriteAndRead();
 	void ReadNextBlock();

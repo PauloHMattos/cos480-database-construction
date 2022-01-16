@@ -8,15 +8,9 @@ HashRecordManager::HashRecordManager(size_t blockSize, unsigned int numberOfBuck
     m_ReadBlock(nullptr),
     m_WriteBlock(nullptr),
     m_NextReadBlockNumber(0),
-    m_RecordsPerBlock(0),
-    m_NumberOfBuckets(numberOfBuckets)
+    m_RecordsPerBlock(0)
 {
-    m_Buckets.reserve(numberOfBuckets);
-    for (size_t i = 0; i < numberOfBuckets; i++)
-    {
-        auto bucket = Bucket(i);
-        m_Buckets.push_back(bucket);
-    }
+    m_File->GetHead()->SetBucketCount(numberOfBuckets);
 }
 
 void HashRecordManager::Create(string path, Schema* schema)
@@ -64,40 +58,32 @@ unsigned long long HashRecordManager::GetSize()
 
 unsigned int HashRecordManager::hashFunction(unsigned long long key)
 {
-    return key % m_NumberOfBuckets;
+    return key % m_File->GetHead()->Buckets.size();
 }
 
 Record* HashRecordManager::Select(unsigned long long id)
 {
     unsigned int bucketNumber = hashFunction(id);
+    auto record = new Record(GetSchema());
+    auto nextBucketBlockNumber = m_File->GetHead()->Buckets[bucketNumber].blockNumber;
+    while (nextBucketBlockNumber != -1) {
+        if (!m_File->GetBlock(nextBucketBlockNumber, m_ReadBlock)) {
+            Assert(false, "Invalid block");
+            return;
+        }
 
-    auto recordBlock = m_Buckets[bucketNumber].block;
-
-    if (recordBlock) {
-        for (unsigned long long key : m_Buckets[bucketNumber].keys) {
-            if (key == id) {
-                // Itera pelo bloco até achar o registro
-                m_NextReadBlockNumber = m_Buckets[bucketNumber].blockNumber;
-
-                m_LastQueryBlockAccessCount = 0;
-                unsigned long long accessedBlocks = 0;
-
-                auto schema = GetSchema();
-                auto currentRecord = new Record(schema);
-
-                while (MoveNext(currentRecord, accessedBlocks))
-                {
-                    m_LastQueryBlockAccessCount += accessedBlocks;
-                    if (currentRecord->getId() == id) {
-                        return currentRecord;
-                    }
-                }
+        while (m_ReadBlock->GetRecord(record->GetData())) {
+            if (record->getId() == id) {
+                return record;
             }
         }
+        nextBucketBlockNumber = *(unsigned long long*)m_ReadBlock->GetHeader().data();
     }
-
     return nullptr;
 }
+
+// TODO - SelectWhereEquals()
+
 
 void HashRecordManager::Insert(Record record)
 {
@@ -105,37 +91,42 @@ void HashRecordManager::Insert(Record record)
     hashRecord->Id = m_File->GetHead()->NextId;
     m_File->GetHead()->NextId += 1;
 
-    unsigned int bucketNumberToInsert = hashFunction(hashRecord->Id);
+    unsigned int bucketHash = hashFunction(hashRecord->Id);
+    auto nextBucketBlockNumber = m_File->GetHead()->Buckets[bucketHash].blockNumber;
+    while (nextBucketBlockNumber != -1) {
+        if (!m_File->GetBlock(nextBucketBlockNumber, m_ReadBlock)) {
+            Assert(false, "Invalid block");
+            return;
+        }
 
-    Block* currentBlock = m_Buckets[bucketNumberToInsert].block;
-
-    // Se o bucket não tem seu bloco corresponde, cria e atualiza
-    if (!currentBlock) {
-        currentBlock = m_File->CreateBlock();
-        m_File->AddBlock(currentBlock);
-        currentBlock->Clear();
-        m_Buckets[bucketNumberToInsert].block = currentBlock;
-        m_Buckets[bucketNumberToInsert].blockNumber = m_File->GetHead()->GetBlocksCount();
+        if (m_ReadBlock->GetRecordsCount() < m_RecordsPerBlock) {
+            m_ReadBlock->Append(*record.GetData());
+            m_File->WriteBlock(m_ReadBlock, nextBucketBlockNumber); //TODO - Rebase
+            return;
+        }
+        nextBucketBlockNumber = *(unsigned long long*)m_ReadBlock->GetHeader().data();
     }
-    else if (m_Buckets[bucketNumberToInsert].recordsCount >= MAX_RECORDS) {
-        // TODO: Overflow bucket
-    }
 
-    auto recordData = record.GetData();
-    currentBlock->Append(*recordData);
-    m_Buckets[bucketNumberToInsert].recordsCount++;
+    // Add new overflow block
+    m_WriteBlock->Clear();
+    m_WriteBlock->Append(*record.GetData());
+    m_File->AddBlock(m_WriteBlock);
+
+    nextBucketBlockNumber = m_File->GetHead()->GetBlocksCount() - 1;
+    memcpy(m_ReadBlock->GetHeader().data(), (void*)nextBucketBlockNumber, sizeof(nextBucketBlockNumber))
+    m_File->WriteBlock(m_ReadBlock, nextBucketBlockNumber); //TODO - Rebase
 }
 
 void HashRecordManager::Delete(unsigned long long id)
 {
-    unsigned int bucketNumber = hashFunction(id);
+    //unsigned int bucketNumber = hashFunction(id);
 
-    Block* currentBlock = m_Buckets[bucketNumber].block;
+    //Block* currentBlock = m_Buckets[bucketNumber].block;
 
-    if (currentBlock) {
-        Record* record = Select(id);
-        // mark as deleted
-    }
+    //if (currentBlock) {
+    //    Record* record = Select(id);
+    //    // mark as deleted
+    //}
 }
 
 void HashRecordManager::MoveToStart()

@@ -1,9 +1,9 @@
 #include "pch.h"
 #include "Block.h"
 
-Block::Block(unsigned int blockSize, unsigned int recordSize) : m_RecordSize(recordSize)
+Block::Block(unsigned int blockSize, unsigned int recordSize, unsigned int headerSize) : m_RecordSize(recordSize), m_HeaderSize(headerSize)
 {
-	m_CurrentLengthInBytes = sizeof(unsigned int);
+	m_CurrentLengthInBytes = sizeof(unsigned int) + sizeof(headerSize);
 	m_BlockData.resize(blockSize);
 }
 
@@ -38,7 +38,7 @@ void Block::Clear()
 	{
 		m_Records.Remove();
 	}
-	m_CurrentLengthInBytes = sizeof(unsigned int);
+	m_CurrentLengthInBytes = sizeof(unsigned int) + sizeof(m_HeaderSize);
 	memset(m_BlockData.data(), 0, m_BlockData.size());
 }
 
@@ -71,4 +71,8 @@ bool Block::GetRecord(vector<unsigned char>* record)
 		return true;
 	}
 	return false;
+}
+
+span<unsigned char> Block::GetHeader() {
+	return span(m_BlockData).subspan(sizeof(unsigned int), m_HeaderSize);
 }
