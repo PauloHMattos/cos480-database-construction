@@ -29,6 +29,7 @@ void OrderedRecordManager::Create(string path, Schema *schema)
 void OrderedRecordManager::Open(string path)
 {
     BaseRecordManager::Open(path);
+    m_OrderedByColumnId = m_File->GetHead()->OrderedByColumnId;
     auto extension_path = path.append(".extension");
     m_ExtensionFile->Open(extension_path, (OrderedFileHead*)CreateNewFileHead(nullptr));
 }
@@ -587,7 +588,9 @@ void OrderedRecordManager::ReadPrevBlock()
 
 FileHead* OrderedRecordManager::CreateNewFileHead(Schema* schema)
 {
-    return new OrderedFileHead(schema);
+    auto fileHead =  new OrderedFileHead(schema);
+    fileHead->OrderedByColumnId = m_OrderedByColumnId;
+    return fileHead;
 }
 
 FileWrapper<FileHead>* OrderedRecordManager::GetFile()

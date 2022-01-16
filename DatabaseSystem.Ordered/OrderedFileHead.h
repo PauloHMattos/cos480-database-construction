@@ -7,6 +7,8 @@ public:
 	OrderedFileHead(Schema *schema);
 	~OrderedFileHead();
 
+	unsigned int OrderedByColumnId;
+
 	// Inherited via FileHead
 	virtual void Serialize(iostream &dst) override;
 	virtual void Deserialize(iostream &src) override;

@@ -13,9 +13,11 @@ OrderedFileHead::~OrderedFileHead()
 void OrderedFileHead::Serialize(iostream &dst)
 {
   FileHead::Serialize(dst);
+  dst << OrderedByColumnId << endl;
 }
 
 void OrderedFileHead::Deserialize(iostream &src)
 {
   FileHead::Deserialize(src);
+  src >> OrderedByColumnId;
 }
