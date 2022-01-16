@@ -1,11 +1,10 @@
 #include "pch.h"
 #include "HeapFileHead.h"
 
-HeapFileHead::HeapFileHead() : HeapFileHead(nullptr)
-{
-}
-
-HeapFileHead::HeapFileHead(Schema* schema) : NextId(0), RemovedRecordHead(RecordPointer())
+HeapFileHead::HeapFileHead(Schema* schema) : 
+    NextId(0), 
+    RemovedRecordHead(RecordPointer()), 
+    RemovedCount(0)
 {
     m_Schema = schema;
 }

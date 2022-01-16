@@ -5,19 +5,18 @@
 class FileHead : public Serializable
 {
 public:
+	unsigned long long NextId;
 	Schema* GetSchema();
 
-	unsigned int GetBlocksCount() {
+	unsigned int GetBlocksCount()
+	{
 		return m_BlocksCount;
 	}
 
-	void SetBlocksCount(unsigned int value) {
+	void SetBlocksCount(unsigned int value)
+	{
 		m_BlocksCount = value;
 	}
-
-	//unsigned int getRecordsCount();
-	//void setRecordsCount(unsigned int newCount);
-	//unsigned int getRecordStartOffset();
 
 	// Inherited via Serializable
 	virtual void Serialize(iostream& dst) override;
@@ -26,5 +25,4 @@ public:
 protected:
 	Schema* m_Schema;
 	unsigned int m_BlocksCount;
-	//unsigned int m_RecordsStartOffset;
 };

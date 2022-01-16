@@ -2,15 +2,18 @@
 
 #include "Schema.h"
 #include "Record.h"
+#include "File.h"
+#include "FileHead.h"
 
 class BaseRecordManager
 {
 public:
-	virtual void Create(string path, Schema* schema) = 0;
-	virtual void Open(string path) = 0;
-	virtual void Close() = 0;
-	virtual Schema* GetSchema() = 0;
-	virtual unsigned long long GetSize() = 0;
+	BaseRecordManager();
+	virtual void Create(string path, Schema* schema);
+	virtual void Open(string path);
+	virtual void Close();
+	virtual Schema* GetSchema();
+	virtual unsigned long long GetSize();
 	unsigned long long GetLastQueryBlockAccessCount() const;
 
 	// ---------------------------------------------- <INSERT> --------------------------------------------------------------------------
@@ -70,11 +73,25 @@ public:
 	// ---------------------------------------------- </DELETE> --------------------------------------------------------------------------
 
 protected:
-	unsigned long long m_LastQueryBlockAccessCount;
-	bool MoveNext(Record* record, unsigned long long& accessedBlocks);
+	struct BaseRecord
+	{
+		unsigned long long Id;
+	};
 
-	virtual void MoveToStart() = 0;
-	virtual bool MoveNext(Record* record, unsigned long long& accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock) = 0;
+	Block* m_ReadBlock;
+	Block* m_WriteBlock;
+	unsigned long long m_RecordsPerBlock;
+	unsigned long long m_NextReadBlockNumber;
+	unsigned long long m_LastQueryBlockAccessCount;
+
+	void ReadNextBlock();
+	bool TryGetNextValidRecord(Record* record);
+	void MoveToStart();
+	bool MoveNext(Record* record, unsigned long long& accessedBlocks);
+	bool MoveNext(Record* record, unsigned long long& accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock);
+	
+	virtual FileHead* CreateNewFileHead(Schema* schema) = 0;
+	virtual FileWrapper<FileHead>* GetFile() = 0;
 	virtual void DeleteInternal(unsigned long long blockNumber, unsigned long long recordNumberInBlock) = 0;
 };
 
