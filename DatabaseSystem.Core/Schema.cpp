@@ -38,7 +38,7 @@ unsigned int Schema::GetVarSize() const
 
 unsigned int Schema::GetSize() const
 {
-	return m_Size + GetVarSize() + 24;
+	return m_Size + GetVarSize() + GetRecordHeadSize();
 }
 
 Column Schema::GetColumn(unsigned int columnId)
@@ -63,7 +63,7 @@ span<unsigned char> Schema::GetValue(vector<unsigned char>* data, unsigned int c
 	auto& column = m_Columns[columnId];
 	if (IsVarLengthColumn(column.Type)) {
 		unsigned int pos = 0;
-		for (int i = 0;i < m_VarLengthColumnPos.size(); i++) {
+		for (int i = 0; i < m_VarLengthColumnPos.size(); i++) {
 			if (m_VarLengthColumnPos[i] == columnId) {
 				pos = i;
 			}
@@ -76,7 +76,7 @@ span<unsigned char> Schema::GetValue(vector<unsigned char>* data, unsigned int c
 		return span(&data->data()[start], length);
 	}
 
-	size_t offset = GetVarSize() + 24;
+	size_t offset = GetVarSize() + GetRecordHeadSize();
 	for (size_t i = 1; i < columnId; i++)
 	{
 		auto &column = m_Columns[i];
@@ -89,13 +89,18 @@ span<unsigned char> Schema::GetValue(vector<unsigned char>* data, unsigned int c
 void Schema::Write(ostream& out, vector<unsigned char>* data)
 {
 	out << "{" << endl;
-	size_t offset = GetVarSize() + 24;
+	size_t offset = 0;
+	
+	// Print id
+	ProcessOutColumn(out, data, m_FixedLengthColumnPos[0], offset, 1);
+
+	offset = GetVarSize() + GetRecordHeadSize();
 	for (size_t i = 1; i < m_FixedLengthColumnPos.size(); i++)
 	{
 		ProcessOutColumn(out, data, m_FixedLengthColumnPos[i], offset, 0);
 	}
 
-	auto columnMaps = span(&data->data()[24], m_VarLengthColumns * sizeof(struct Record::VarColumnMap));
+	auto columnMaps = span(&data->data()[GetRecordHeadSize()], m_VarLengthColumns * sizeof(struct Record::VarColumnMap));
 	for (int i = 0; i < columnMaps.size(); i += sizeof(struct Record::VarColumnMap))
 	{
 		auto columnMap = (Record::VarColumnMap*)columnMaps.subspan(i, sizeof(Record::VarColumnMap)).data();
@@ -157,4 +162,9 @@ void Schema::Deserialize(iostream& src)
 		}
 		AddColumn(row[0], ColumnType::_from_index(stoi(row[1])), stoi(row[2]));
 	}
+}
+
+unsigned int Schema::GetRecordHeadSize() const
+{
+	return 24;
 }

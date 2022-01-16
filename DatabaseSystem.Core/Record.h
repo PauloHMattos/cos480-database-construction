@@ -28,6 +28,7 @@ public:
 	//Var length
 	unsigned int GetDataSize();
 	unsigned int GetHeadSize();
+	unsigned int GetFixedSize() const;
 
 	void ResizeData(unsigned int newSize);
 

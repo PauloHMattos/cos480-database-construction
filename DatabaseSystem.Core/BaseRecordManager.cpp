@@ -31,6 +31,7 @@ Record* BaseRecordManager::Select(unsigned long long id)
 
 	auto schema = GetSchema();
 	auto currentRecord = new Record(schema);
+	currentRecord->ResizeData(424);
 
 	MoveToStart();
 	while (MoveNext(currentRecord, accessedBlocks))
@@ -149,6 +150,9 @@ int BaseRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned ch
 	auto column = schema->GetColumn(columnId);
 	auto currentRecord = Record(schema);
 
+	//
+	currentRecord.ResizeData(424);
+	//
 	unsigned long long blockId;
 	unsigned long long recordNumberInBlock;
 
@@ -167,4 +171,37 @@ int BaseRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned ch
 	}
 
 	return removedCount;
+}
+
+vector<Record*> BaseRecordManager::SelectBlock(unsigned long long blockIdReq)
+{
+	m_LastQueryBlockAccessCount = 0;
+	unsigned long long accessedBlocks = 0;
+
+	auto schema = GetSchema();
+	auto currentRecord = Record(schema);
+
+	//
+	currentRecord.ResizeData(424);
+	//
+
+	auto records = vector<Record*>();
+	unsigned long long blockId;
+	unsigned long long recordNumberInBlock;
+
+	MoveToStart();
+	while (MoveNext(&currentRecord, accessedBlocks, blockId, recordNumberInBlock))
+	{
+		if (blockId == blockIdReq) {
+			auto newRecord = new Record(schema);
+			newRecord->ResizeData(424);
+			memcpy(newRecord->GetData()->data(), currentRecord.GetData()->data(), 424);
+			records.push_back(newRecord);
+		}
+
+		if (blockId > blockIdReq)
+			break;
+	}
+
+	return records;
 }

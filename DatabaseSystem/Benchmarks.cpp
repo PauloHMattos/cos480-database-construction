@@ -20,6 +20,7 @@ void findAllEquals(Table& table);
 void deleteOne(Table& table);
 void deleteAllEquals(Table& table);
 void printRecords(vector<Record*> records, string label = "Records");
+void getAllBlockRecords(Table& table);
 
 int main()
 {
@@ -35,12 +36,15 @@ int main()
 
     insertMany(table, records);
 
+    getAllBlockRecords(table);
+    deleteAllEquals(table);
+    heap.Reorganize();
+    getAllBlockRecords(table);
     //findOne(table);
     //findAllSet(table);
-    findAllBetween(table);
+    //findAllBetween(table);
     //findAllEquals(table);
 
-    //deleteAllEquals(table);
     //findAllEquals(table);
     //insertMany(table, records);
 
@@ -59,6 +63,23 @@ void insertMany(Table& table, vector<Record> records)
     cout << "- Duration = " << microseconds.count() << " ms" << endl;
     cout << "- Space usage = " << table.GetSize() << " Bytes" << endl;
     cout << endl;
+}
+
+void getAllBlockRecords(Table& table)
+{
+    cout << "[Block] Get All Block Records" << endl;
+    unsigned long long blockIdReq = 0;
+    cout << "- BlockId = " << blockIdReq << endl;
+
+    auto start = std::chrono::high_resolution_clock::now();
+    auto records = table.SelectBlockRecords(blockIdReq);
+    auto finish = std::chrono::high_resolution_clock::now();
+    auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
+    cout << "- Duration = " << microseconds.count() << " ms" << endl;
+    cout << "- Accessed Blocks = " << table.GetLastQueryAccessedBlocksCount() << endl;
+    printRecords(records);
+    cout << endl;
+
 }
 
 void findOne(Table& table)
@@ -160,11 +181,13 @@ void deleteOne(Table& table)
 
 void deleteAllEquals(Table& table)
 {
-    char city[40] = "Taguatinga";
-    cout << "[DeleteAll] City = " << city << endl;
+    //char city[40] = "Taguatinga";
+    //cout << "[DeleteAll] City = " << city << endl;
+    float weight = 55554.0;
+    cout << "[DeleteAll] Weight = " << weight << endl;
 
     auto start = std::chrono::high_resolution_clock::now();
-    auto records = table.DeleteWhereEquals(NAMEOF(FixedRecord::City).str(), SPANOF(city));
+    auto records = table.DeleteWhereEquals(NAMEOF(FixedRecord::Weigth).str(), SPANOF(weight));
     auto finish = std::chrono::high_resolution_clock::now();
     auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
     cout << "- Duration = " << microseconds.count() << " ms" << endl;

@@ -17,6 +17,7 @@ public:
 	// Var length
 	bool IsVarLengthColumn(ColumnType type);
 	unsigned int GetVarSize() const;
+	unsigned int GetRecordHeadSize() const;
 
 	// Inherited via Serializable
 	void Serialize(iostream& dst) override;

@@ -12,7 +12,7 @@ public:
 	virtual Schema* GetSchema() = 0;
 	virtual unsigned long long GetSize() = 0;
 	unsigned long long GetLastQueryBlockAccessCount() const;
-
+	virtual vector<Record*> SelectBlock(unsigned long long blockId);
 	// ---------------------------------------------- <INSERT> --------------------------------------------------------------------------
 	/*
 	* Inserção de um único registro.

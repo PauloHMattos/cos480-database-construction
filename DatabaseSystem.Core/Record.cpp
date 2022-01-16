@@ -42,6 +42,11 @@ unsigned int Record::GetHeadSize()
 	return m_Schema->GetVarSize();
 }
 
+unsigned int Record::GetFixedSize() const
+{
+	return m_Schema->GetRecordHeadSize();
+}
+
 vector<Record> Record::LoadFromCsv(Schema& schema, string path) {
 	auto result = vector<Record>();
 
@@ -61,7 +66,7 @@ vector<Record> Record::LoadFromCsv(Schema& schema, string path) {
 		// VarColumns
 		int varColumnId = 0;
 		int sumCellLength = 0;
-		int varHeadOffset = 24; //TODO: MARRETADO!! Trocar! 24 bytes de Id + Struct com ponteiros de NextDeleted
+		int varHeadOffset = record.GetFixedSize();
 
 		size_t sizeOfVarColumnMap = sizeof(struct Record::VarColumnMap);
 		

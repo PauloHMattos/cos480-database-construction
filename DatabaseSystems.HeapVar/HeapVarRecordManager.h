@@ -23,13 +23,15 @@ public:
 	virtual unsigned long long GetSize() override;
 	virtual void Insert(Record record) override;
 
+	void UpdateRecordRangePos(unsigned int maxRecord, unsigned int bytesShifted);
+	void Reorganize();
+
 protected:
 	// Inherited via BaseRecordManager
 	virtual void MoveToStart() override;
 	virtual bool MoveNext(Record* record, unsigned long long& accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock) override;
 	virtual void DeleteInternal(unsigned long long blockNumber, unsigned long long recordNumberInBlock) override;
 	bool GetNextRecordInFile(Record* record);
-	void Reorganize();
 
 private:
 	FileWrapper<HeapVarFileHead>* m_File;
