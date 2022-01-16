@@ -104,22 +104,23 @@ Record *OrderedRecordManager::Select(unsigned long long id)
         };
         auto currentRecord = BinarySearch(span<unsigned char>((unsigned char *)&id, sizeof(id)), evalFunc, accessedBlocks);
         m_LastQueryBlockAccessCount += accessedBlocks;
+
+        if (currentRecord != nullptr)
+            return currentRecord;
         
         // if not found, try to linear search m_ExtensionFile
-        if (currentRecord == nullptr) {
-            currentRecord = new Record(GetSchema());
+        currentRecord = new Record(GetSchema());
 
-            MoveToExtension();
-            while (MoveNext(currentRecord, accessedBlocks, blockId, recordNumberInBlock))
-            {
-                m_LastQueryBlockAccessCount += accessedBlocks;
-                if (currentRecord->getId() == id) {
-                    return currentRecord;
-                }
+        MoveToExtension();
+        while (MoveNext(currentRecord, accessedBlocks, blockId, recordNumberInBlock))
+        {
+            m_LastQueryBlockAccessCount += accessedBlocks;
+            if (currentRecord->getId() == id) {
+                return currentRecord;
             }
         }
         
-        return currentRecord;
+        return nullptr;
     }
     // if the file is not ordered by id, linear search everything
     return BaseRecordManager::Select(id);
