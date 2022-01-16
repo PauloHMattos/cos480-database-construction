@@ -18,11 +18,8 @@ struct RecordPointer
 class HeapFileHead : public FileHead
 {
 public:
-
-	HeapFileHead();
 	HeapFileHead(Schema* schema);
 	~HeapFileHead();
-	unsigned long long NextId;
 	unsigned long long RemovedCount;
 	RecordPointer RemovedRecordHead;
 	RecordPointer RemovedRecordTail;

@@ -31,17 +31,18 @@ int main()
     auto records = Record::LoadFromCsv(*fixedSchema, "C:\\Users\\Paulo Mattos\\Desktop\\cbd.csv");
 
     insertMany(table, records);
-    /*
+    //*
     findOne(table);
     findAllSet(table);
     findAllBetween(table);
     findAllEquals(table);
     //*/
 
-
+    /*
     deleteAllEquals(table);
     findAllEquals(table);
     insertMany(table, records);
+    */
 
     table.Close();
 }
