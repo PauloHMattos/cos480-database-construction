@@ -7,6 +7,13 @@
 
 typedef bool (*EvalFunctionType)(int);
 
+typedef struct partition
+{
+    unsigned long long firstBlock;
+    unsigned long long blocksCount;
+    unsigned long level;
+} Partition;
+
 /*
   Ordered, ou arquivo sequencial ordenado, com registros de tamanho fixo,
   inserção de novos em um arquivo de extensão e posterior reordenação, e remoção baseada em marcação dos registros removidos,
@@ -31,7 +38,7 @@ public:
     virtual void Delete(unsigned long long id) override;
     virtual int DeleteWhereEquals(unsigned int columnId, span<unsigned char> data) override;
 
-    const bool DEBUG = true;
+    const bool DEBUG = false;
 
 protected:
     // Inherited via BaseRecordManager
@@ -60,6 +67,10 @@ private:
     void SwitchFilesSoft(); // switches m_File and m_ExtensionFile paths
     void SwitchFilesHard(); // copy m_ExtensionFile data into m_File
     Record* BinarySearch(span<unsigned char> target, EvalFunctionType evalFunc, unsigned long long& accessedBlocks);
+    vector<Partition> SplitPartitions(vector<Partition> partitons);
+    vector<Partition> Split(Partition p);
+    vector<Partition> MergePartitions(vector<Partition> partitions, unsigned long deepestLevel);
+    Partition Merge(Partition p1, Partition p2);
 
     struct OrderedRecord
     {

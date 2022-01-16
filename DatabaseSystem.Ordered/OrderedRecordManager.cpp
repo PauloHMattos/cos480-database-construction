@@ -569,19 +569,12 @@ bool OrderedRecordManager::GetPrevRecordInFile(Record* record)
 void OrderedRecordManager::MoveToExtension()
 {
     m_NextReadBlockNumber = m_File->GetHead()->GetBlocksCount();
+    ReadNextBlock();
 }
 
 void OrderedRecordManager::ReadPrevBlock()
 {
-    m_ReadBlock->Clear();
-    auto mainFileBlockCount = m_File->GetHead()->GetBlocksCount();
-    if (m_NextReadBlockNumber < mainFileBlockCount) {
-        m_File->GetBlock(m_NextReadBlockNumber, m_ReadBlock);
-    }
-    else {
-        auto blockId = m_NextReadBlockNumber - mainFileBlockCount;
-        m_ExtensionFile->GetBlock(blockId, m_ReadBlock);
-    }
+    ReadBlock(m_NextReadBlockNumber);
     m_ReadBlock->MoveToEnd();
     m_NextReadBlockNumber--;
 }
@@ -655,27 +648,25 @@ void OrderedRecordManager::Reorder()
         return;
     }
 
+    unsigned long long accessedBlocks = 0;
+
     auto schema = GetSchema();
     Record record = Record(schema);
     auto recordSize = schema->GetSize();
 
     auto comparer = MakeComparer(schema, m_OrderedByColumnId);
 
-    // TODO
-    // insert blocks from m_ExtensionFile into m_File, reordering
-
     // Sort blocks from m_ExtensionFile and insert them into m_File
-    Block *block = m_ExtensionFile->CreateBlock();
     auto blocksCount = m_ExtensionFile->GetHead()->GetBlocksCount();
 
     unsigned long long blockId;
     for (blockId = 0; blockId < blocksCount; blockId++)
     {
         auto blockRecords = vector<Record>();
-        block->Clear();
-        m_ExtensionFile->GetBlock(blockId, block);
-        block->MoveToStart();
-        while (GetRecord(block, &record))
+        m_ReadBlock->Clear();
+        m_ExtensionFile->GetBlock(blockId, m_ReadBlock);
+        m_ReadBlock->MoveToStart();
+        while (GetRecord(m_ReadBlock, &record))
         {
             blockRecords.push_back(record);
         }
@@ -683,70 +674,41 @@ void OrderedRecordManager::Reorder()
         sort(blockRecords.begin(), blockRecords.end(), comparer);
 
         // Write sorted data into block and add block into m_File
-        block->Clear();
+        m_WriteBlock->Clear();
         for (auto record : blockRecords)
         {
             auto recordData = record.GetData();
-            block->Append(*recordData);
+            m_WriteBlock->Append(*recordData);
         }
-        m_File->AddBlock(block);
+        m_File->AddBlock(m_WriteBlock);
     }
-
-    // Sort all blocks in m_File and write to m_ExtensionFile
-    auto inputBuffer = vector<Record>();
-    auto outputBuffer = vector<Record>();
-
     m_ExtensionFile->SeekHead();
 
-    unsigned int recordPointer = 0;
-    while (recordPointer < m_RecordsPerBlock)
+    // Split m_File into partitions of size 1 block
+    blocksCount = m_File->GetHead()->GetBlocksCount();
+    auto partitions = vector<Partition>();
+    Partition fullFile;
+    fullFile.firstBlock = 0;
+    fullFile.blocksCount = blocksCount;
+    fullFile.level = 0;
+    partitions.push_back(fullFile);
+    while (partitions.size() < blocksCount)
     {
-        // Get one record from each block
-        blocksCount = m_File->GetHead()->GetBlocksCount();
-        for (blockId = 0; blockId < blocksCount; blockId++)
-        {
-            block->Clear();
-            m_File->GetBlock(blockId, block);
-            if (!GetRecord(block, &record, recordPointer))
-                continue;
-            inputBuffer.push_back(record);
-        }
-
-        // Sort input buffer and copy into output buffer
-        sort(inputBuffer.begin(), inputBuffer.end(), comparer);
-        outputBuffer.insert(outputBuffer.end(), inputBuffer.begin(), inputBuffer.end());
-
-        if (outputBuffer.size() >= m_RecordsPerBlock)
-        {
-            // Copy output buffer into m_ExtensionFile
-            auto outBlock = m_ExtensionFile->CreateBlock();
-            for (int i = 0; i < m_RecordsPerBlock; i++)
-            {
-                record = outputBuffer[i];
-                auto recordData = record.GetData();
-                outBlock->Append(*recordData);
-            }
-            m_ExtensionFile->AddBlock(outBlock);
-            outputBuffer = vector(outputBuffer.begin() + m_RecordsPerBlock, outputBuffer.end());
-        }
-        inputBuffer = vector<Record>();
-        recordPointer++;
+        partitions = SplitPartitions(partitions);
     }
 
-    SwitchFilesSoft();
-  
-    // let n be the amount of blocks to merge
-    // Read the first RecordsPerBlock / n+1 records of each sorted block into n input buffers in main memory and allocate the remaining block space for an output buffer.
-    // CREATE N INPUT BUFFERS
-    // CREATE 1 OUTPUT BUFFER
-    // READ ith BLOCK FROM MAIN FILE
-    // WRITE RecordsPerBlock / n+1 RECORDS INTO ith INPUT BUFFER
-    // MERGE SORT INPUT BUFFERS INTO OUTPUT BUFFER
-    // WHEN OUTPUT BUFFER FULL, WRITE TO TMP FILE
-    // WHEN ith INPUT BUFFER FULL, READ FROM ith BLOCK
-    // WHEN MAIN FILE IS EMPTY, COPY TMP FILE INTO FILE
+    // Merge partitions into m_File, reordering
+    unsigned long deepestLevel = ceil(log2(blocksCount));
+    while (partitions.size() > 1)
+    {
+        partitions = MergePartitions(partitions, deepestLevel);
+        deepestLevel--;
+    }
 
-    // Perform a merge and store the result in the output buffer. Whenever the output buffer fills, write it to the final sorted file and empty it. Whenever any of the input buffers empties, fill it with the next RecordsPerBlock / n+1 records of its associated sorted block until no more data from the chunk is available. This is the key step that makes external merge sort work externally—because the merge algorithm only makes one pass sequentially through each of the blocks, each block does not have to be loaded completely; rather, sequential parts of the chunk can be loaded as needed.
+    if (deepestLevel != 0)
+    {
+        Assert(false, "After full merge the full file partition should have level 0");
+    }
 }
 
 void OrderedRecordManager::MemoryReorder() 
@@ -868,4 +830,194 @@ Record* OrderedRecordManager::BinarySearch(span<unsigned char> target, EvalFunct
     }
 
     return nullptr;
+}
+
+vector<Partition> OrderedRecordManager::SplitPartitions(vector<Partition> partitions)
+{
+    auto splitPartitions = vector<Partition>();
+    // [                           (0,10,0)          ]
+    // [           (0,5,1),                    (5,5,1)   ] 
+    // [   (0,3,2),         (3,2,2),        (5,3,2),   (8,2,2) ]
+    // [(0,2,3),(2,1,3),(3,1,3),(4,1,3),(5,2,3)(7,1,3), (8,1,3), (9,1,3)]
+    // [(0,1,4),(1,1,4)(2,1,3),(3,1,3),(4,1,3),(5,1,4),(6,1,4),(7,1,3),(8,1,3),(9,1,3)]
+    // [(0,2,3),(2,1,3),(3,1,3),(4,1,3),(5,1,4),(6,1,4),(7,1,3),(8,1,3),(9,1,3)]
+    // [(0,2,3),(2,1,3),(3,1,3),(4,1,3),(5,2,3),(7,1,3),(8,1,3),(9,1,3)]
+    // [(0,3,2),(3,1,3),(4,1,3),(5,2,3),(7,1,3),(8,1,3),(9,1,3)]
+    // [(0,3,2),(3,2,2),(5,2,3),(7,1,3),(8,1,3),(9,1,3)]
+    // [(0,3,2),(3,2,2),(5,3,2),(8,1,3),(9,1,3)]
+    // [(0,3,2),(3,2,2),(5,3,2),(8,2,2)]
+    // [(0,5,1),(5,3,2),(8,2,2)]
+    // [(0,5,1),(5,5,1)]
+    // [(0,10,0)]
+    for (auto p : partitions)
+    {
+        if (p.blocksCount == 1)
+        {
+            splitPartitions.push_back(p);
+            continue;
+        }
+
+        auto splitP = Split(p);
+
+        splitPartitions.push_back(splitP[0]);
+        splitPartitions.push_back(splitP[1]);
+    }
+
+    return splitPartitions;
+}
+
+vector<Partition> OrderedRecordManager::Split(Partition p)
+{
+    auto splitPartition = vector<Partition>();
+    auto newBlocksCount = p.blocksCount / 2;
+    Partition p1;
+    Partition p2;
+
+    p1.firstBlock = p.firstBlock;
+    p1.blocksCount = newBlocksCount;
+    p1.level = p.level + 1;
+
+    p2.firstBlock = p.firstBlock + newBlocksCount;
+    p2.blocksCount = newBlocksCount;
+    p2.level = p.level + 1;
+
+    if (p.blocksCount % 2 != 0) // odd number of blocks in partition
+    {
+        p1.blocksCount += 1;
+        p2.firstBlock += 1;
+    }
+
+    splitPartition.push_back(p1);
+    splitPartition.push_back(p2);
+
+    return splitPartition;
+}
+
+vector<Partition> OrderedRecordManager::MergePartitions(vector<Partition> partitions, unsigned long deepestLevel)
+{
+    auto mergedPartitions = vector<Partition>();
+    auto i = 0;
+    while(i < partitions.size())
+    {
+        auto p1 = partitions[i];
+
+        if (p1.level < deepestLevel)
+        {
+            mergedPartitions.push_back(p1);
+            i++;
+            continue;
+        }
+        else if (p1.level == deepestLevel)
+        {
+            auto p2 = partitions[i + 1];
+
+            auto p = Merge(p1, p2);
+            mergedPartitions.push_back(p);
+            i += 2;
+        }
+        else
+        {
+            Assert(false, "Should not have partitions deeper than the deepest level");
+        }
+    }
+
+    return mergedPartitions;
+}
+
+Partition OrderedRecordManager::Merge(Partition p1, Partition p2)
+{
+    if (p1.level != p2.level)
+    {
+        Assert(false, "Should not merge partitions of different levels");
+    }
+    auto schema = GetSchema();
+    auto comparer = MakeComparer(schema, m_OrderedByColumnId);
+
+    auto recordPointer1 = p1.firstBlock * m_RecordsPerBlock;
+    auto lastRecordP1 = p1.firstBlock + p1.blocksCount*m_RecordsPerBlock - 1;
+
+    auto recordPointer2 = p2.firstBlock * m_RecordsPerBlock;
+    auto lastRecordP2 = p2.firstBlock + p2.blocksCount*m_RecordsPerBlock - 1;
+
+    auto readBlock1 = m_File->CreateBlock();
+    auto record1 = Record(schema);
+
+    auto readBlock2 = m_File->CreateBlock();
+    auto record2 = Record(schema);
+
+    unsigned long long writeBlockPointer = min(recordPointer1, recordPointer2) / m_RecordsPerBlock;
+
+    m_WriteBlock->Clear();
+    while (recordPointer1 <= lastRecordP1 && recordPointer2 <= lastRecordP2)
+    {
+        auto blockPointer1 = recordPointer1 / m_RecordsPerBlock;
+        auto recordOffset1 = recordPointer1 % m_RecordsPerBlock;
+
+        readBlock1->Clear();
+        m_File->GetBlock(blockPointer1, readBlock1);
+        GetRecord(readBlock1, &record1, recordOffset1);
+
+
+        auto blockPointer2 = recordPointer2 / m_RecordsPerBlock;
+        auto recordOffset2 = recordPointer2 % m_RecordsPerBlock;
+
+        readBlock2->Clear();
+        m_File->GetBlock(blockPointer2, readBlock2);
+        GetRecord(readBlock2, &record2, recordOffset2);
+
+        if (comparer(record1, record2)) // record 1 should come before record 2
+        {
+            auto recordData = record1.GetData();
+            m_WriteBlock->Append(*recordData);
+            recordPointer1++;
+        }
+        else // record 2 should come before record 1
+        {
+            auto recordData = record2.GetData();
+            m_WriteBlock->Append(*recordData);
+            recordPointer2++;
+        }
+
+        auto recordsInWriteBlock = m_WriteBlock->GetRecordsCount();
+        if (recordsInWriteBlock == m_RecordsPerBlock)
+        {
+            // write block to m_File at writeBlockPointer
+            m_File->WriteBlock(m_WriteBlock, writeBlockPointer);
+            m_WriteBlock->Clear();
+            writeBlockPointer++;
+        }
+    }
+
+    // one of the partitions is over, copy everything in the remaining partition into the file
+    auto remainingRecordPointer = (recordPointer1 > lastRecordP1) ? recordPointer2 : recordPointer1;
+    auto lastRecord = (remainingRecordPointer == recordPointer2) ? lastRecordP2 : lastRecordP1;
+    while (remainingRecordPointer <= lastRecord)
+    {
+        auto blockPointer = remainingRecordPointer / m_RecordsPerBlock;
+        auto recordOffset = remainingRecordPointer % m_RecordsPerBlock;
+
+        readBlock1->Clear();
+        m_File->GetBlock(blockPointer, readBlock1);
+        GetRecord(readBlock1, &record1, recordOffset);
+
+        auto recordData = record1.GetData();
+        m_WriteBlock->Append(*recordData);
+        remainingRecordPointer++;
+
+        auto recordsInWriteBlock = m_WriteBlock->GetRecordsCount();
+        if (recordsInWriteBlock == m_RecordsPerBlock)
+        {
+            // write block to m_File at writeBlockPointer
+            m_File->WriteBlock(m_WriteBlock, writeBlockPointer);
+            m_WriteBlock->Clear();
+            writeBlockPointer++;
+        }
+    }
+
+    Partition mergedPartition;
+    mergedPartition.firstBlock = min(p1.firstBlock, p2.firstBlock);
+    mergedPartition.blocksCount = p1.blocksCount + p2.blocksCount;
+    mergedPartition.level = p1.level - 1;
+
+    return mergedPartition;
 }
