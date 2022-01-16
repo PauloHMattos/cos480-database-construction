@@ -29,6 +29,7 @@ unsigned int HashRecordManager::hashFunction(unsigned long long key)
 
 Record* HashRecordManager::Select(unsigned long long id)
 {
+    m_LastQueryBlockAccessCount = 0;
     unsigned int bucketNumber = hashFunction(id);
     auto record = new Record(GetSchema());
     auto nextBucketBlockNumber = m_File->GetHead()->Buckets[bucketNumber].blockNumber;
@@ -37,7 +38,8 @@ Record* HashRecordManager::Select(unsigned long long id)
             Assert(false, "Invalid block");
             return nullptr;
         }
-
+        m_LastQueryBlockAccessCount++;
+        m_ReadBlock->MoveToStart();
         while (m_ReadBlock->GetRecord(record->GetData())) {
             if (record->getId() == id) {
                 return record;
@@ -48,47 +50,66 @@ Record* HashRecordManager::Select(unsigned long long id)
     return nullptr;
 }
 
-// TODO - SelectWhereEquals()
+vector<Record*> HashRecordManager::SelectWhereEquals(unsigned int columnId, span<unsigned char> data)
+{
+    if (columnId != 0) {
+        return BaseRecordManager::SelectWhereEquals(columnId, data);
+    }
 
+    m_LastQueryBlockAccessCount = 0;
+    auto records = vector<Record*>();
+    auto id = *(unsigned long long*)data.data();
+    unsigned int bucketNumber = hashFunction(id);
+    auto record = new Record(GetSchema());
+    auto nextBucketBlockNumber = m_File->GetHead()->Buckets[bucketNumber].blockNumber;
+    while (nextBucketBlockNumber != -1) {
+        if (!m_File->GetBlock(nextBucketBlockNumber, m_ReadBlock)) {
+            Assert(false, "Invalid block");
+            break;
+        }
+        m_LastQueryBlockAccessCount++;
+        m_ReadBlock->MoveToStart();
+        while (m_ReadBlock->GetRecord(record->GetData())) {
+            records.push_back(record);
+        }
+        nextBucketBlockNumber = *(unsigned long long*)m_ReadBlock->GetHeader().data();
+    }
+    return records;
+}
 
 void HashRecordManager::Insert(Record record)
 {
+    m_LastQueryBlockAccessCount = 0;
+
     auto hashRecord = record.As<HashRecord>();
     hashRecord->Id = m_File->GetHead()->NextId;
     m_File->GetHead()->NextId += 1;
 
     unsigned int bucketHash = hashFunction(hashRecord->Id);
     auto nextBucketBlockNumber = m_File->GetHead()->Buckets[bucketHash].blockNumber;
-    auto previousBucketBlockNumber = -1;
-    while (nextBucketBlockNumber != -1) {
+    unsigned long long previousBucketBlockNumber = -1;
+    if (nextBucketBlockNumber != -1) {
         if (!m_File->GetBlock(nextBucketBlockNumber, m_ReadBlock)) {
             Assert(false, "Invalid block");
             return;
         }
-
+        m_LastQueryBlockAccessCount++;
         if (m_ReadBlock->GetRecordsCount() < m_RecordsPerBlock) {
             m_ReadBlock->Append(*record.GetData());
             m_File->WriteBlock(m_ReadBlock, nextBucketBlockNumber);
             return;
         }
         previousBucketBlockNumber = nextBucketBlockNumber;
-        nextBucketBlockNumber = *(unsigned long long*)m_ReadBlock->GetHeader().data();
     }
 
     // Add new overflow block
     m_WriteBlock->Clear();
-    nextBucketBlockNumber = -1;
-    memcpy(m_WriteBlock->GetHeader().data(), (const char*)&nextBucketBlockNumber, sizeof(nextBucketBlockNumber));
+    memcpy(m_WriteBlock->GetHeader().data(), (const char*)&previousBucketBlockNumber, sizeof(previousBucketBlockNumber));
     m_WriteBlock->Append(*record.GetData());
     m_File->AddBlock(m_WriteBlock);
 
     nextBucketBlockNumber = m_File->GetHead()->GetBlocksCount() - 1;
-    if (nextBucketBlockNumber > 0)
-    {
-        memcpy(m_ReadBlock->GetHeader().data(), (const char*)&nextBucketBlockNumber, sizeof(nextBucketBlockNumber));
-        m_File->WriteBlock(m_ReadBlock, previousBucketBlockNumber);
-}
-    m_File->GetHead()->Buckets[bucketHash].blockNumber = previousBucketBlockNumber;
+    m_File->GetHead()->Buckets[bucketHash].blockNumber = nextBucketBlockNumber;
 }
 
 void HashRecordManager::Delete(unsigned long long id)

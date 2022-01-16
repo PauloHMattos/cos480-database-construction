@@ -1,24 +1,14 @@
 #include "pch.h"
 #include "HashFileHead.h"
 
-HashFileHead::HashFileHead() : NextId(0), Buckets(vector<Bucket>())
-{
-}
-
-HashFileHead::HashFileHead(Schema* schema) : NextId(0), Buckets(vector<Bucket>())
+HashFileHead::HashFileHead(Schema* schema) : Buckets(vector<Bucket>())
 {
 	m_Schema = schema;
-}
-
-HashFileHead::~HashFileHead()
-{
 }
 
 void HashFileHead::Serialize(iostream& dst)
 {
 	FileHead::Serialize(dst);
-	dst.write((const char*)&NextId, sizeof(NextId));
-
 	dst << Buckets.size() << endl;
 	for (auto bucket : Buckets) {
 		dst << bucket.hash << endl;
@@ -40,8 +30,6 @@ void HashFileHead::SetBucketCount(int count) {
 void HashFileHead::Deserialize(iostream& src)
 {
 	FileHead::Deserialize(src);
-	src.read((char*)&NextId, sizeof(NextId));
-
 	int bucketCount;
 	src >> bucketCount;
 	Buckets.clear();

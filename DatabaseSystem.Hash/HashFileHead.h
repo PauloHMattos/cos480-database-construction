@@ -5,10 +5,7 @@
 class HashFileHead : public FileHead
 {
 public:
-	HashFileHead();
 	HashFileHead(Schema* schema);
-	~HashFileHead();
-	unsigned long long NextId;
 	vector<Bucket> Buckets;
 
 	void SetBucketCount(int count);

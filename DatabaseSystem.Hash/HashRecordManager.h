@@ -19,6 +19,8 @@ public:
 
 	// Inherited via BaseRecordManager
 	virtual Record* Select(unsigned long long id) override;
+	virtual vector<Record*> SelectWhereEquals(unsigned int columnId, span<unsigned char> data) override;
+
 	virtual void Insert(Record record) override;
 	virtual void Delete(unsigned long long id) override;
 
