@@ -29,8 +29,6 @@ public:
     virtual void Close() override;
 
     // Inherited via BaseRecordManager
-    virtual Schema* GetSchema() override;
-    virtual unsigned long long GetSize() override;
     virtual void Insert(Record record) override;
     virtual Record* Select(unsigned long long id) override;
     virtual vector<Record*> SelectWhereBetween(unsigned int columnId, span<unsigned char> min, span<unsigned char> max) override;
@@ -44,12 +42,14 @@ protected:
     // Inherited via BaseRecordManager
     virtual FileHead* CreateNewFileHead(Schema* schema) override;
     virtual FileWrapper<FileHead>* GetFile() override;
-    virtual void ReadBlock(unsigned long long blockId) override;
+    virtual unsigned long long GetBlocksCount() override;
+    virtual void ReadBlock(Block* block, unsigned long long blockId) override;
     void MoveToExtension();
     bool MovePrev(Record* record, unsigned long long& accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock);
     virtual void DeleteInternal(unsigned long long blockNumber, unsigned long long recordNumberInBlock);
     bool GetNextRecordInFile(Record* record);
     bool GetPrevRecordInFile(Record* record);
+    virtual void Reorganize() override;  // inserts records from extension file into main file, reordering
 
 private:
     FileWrapper<OrderedFileHead>* m_File;
@@ -59,8 +59,11 @@ private:
     unsigned long long m_DeletedRecords;
     float m_MaxPercentEmptySpace;
 
+    void AddToExtension(Block* block);
+    void WriteToExtension(Block* block, unsigned long long blockNumber);
+    void GetBlockFromExtension(Block* block, unsigned long long blockNumber);
+    void GetBlockFromMainFile(Block* block, unsigned long long blockNumber);
     void ReadPrevBlock();
-    void Reorder();  // inserts records from extension file into main file, reordering
     void MemoryReorder(); // reads all records from main file and extension file into memory and reorders, for debugging
     void Compress(); // removes records marked as deleted from the file, compressing the empty space
     Record* BinarySearch(span<unsigned char> target, EvalFunctionType evalFunc, unsigned long long& accessedBlocks);
