@@ -7,6 +7,8 @@
 #include "../DatabaseSystem.Core/Table.h"
 #include "../DatabaseSystems.Heap/HeapRecordManager.h"
 #include "../DatabaseSystem.Ordered/OrderedRecordManager.h"
+#include "VarRecord.h"
+#include "../DatabaseSystems.HeapVar/HeapVarRecordManager.h"
 
 #define SPANOF(value) span<unsigned char>((unsigned char*)&value, sizeof(value))
 
@@ -25,12 +27,12 @@ int main()
 {
     auto varSchema = VarRecord::CreateSchema();
 
-    auto dbPath = ".\\test.db";
-    auto heap = OrderedRecordManager(4096, 0);
+    auto dbPath = "C:\\Users\\guilh\\Documents\\ECI\\COS480\\cos480-database-construction\\DatabaseSystem\\x64\\Debug\\test.db";
+    auto heap = HeapVarRecordManager(4096, 0);
     auto table = Table(heap);
     //table.Load(dbPath);
-    table.Create(dbPath, fixedSchema);
-    auto records = Record::LoadFromCsv(*fixedSchema, ".\\cbd.csv", -1);
+    table.Create(dbPath, varSchema);
+    auto records = Record::LoadFromCsv(*varSchema, "C:\\Users\\guilh\\Documents\\ECI\\COS480\\cos480-database-construction\\DatabaseSystem\\x64\\Debug\\cbd.csv", -1);
 
     insertMany(table, records);
     /*
@@ -79,7 +81,8 @@ void getAllBlockRecords(Table& table)
     auto finish = std::chrono::high_resolution_clock::now();
     auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
     cout << "- Duration = " << microseconds.count() << " ms" << endl;
-    cout << "- Accessed Blocks = " << table.GetLastQueryAccessedBlocksCount() << endl;
+    cout << "- Accessed Blocks = " << table.GetLastQueryBlockReadAccessCount() << endl;
+    cout << "- Write Blocks = " << table.GetLastQueryBlockWriteAccessCount() << endl;
     printRecords(records);
     cout << endl;
 
