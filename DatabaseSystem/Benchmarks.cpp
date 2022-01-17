@@ -35,18 +35,15 @@ int main()
     auto records = Record::LoadFromCsv(*varSchema, ".\\cbd.csv", -1);
 
     insertMany(table, records);
-    /*
-    findOne(table);
-    findAllSet(table);
-    findAllBetween(table);
+    
+    //findOne(table);
+    //findAllSet(table);
+    //findAllBetween(table);
     findAllEquals(table);
-    /*/
-
-    //*
+    //deleteOne(table);
     deleteAllEquals(table);
-    findAllEquals(table);
-    insertMany(table, records);
-    //*/
+
+   
 
     //findAllEquals(table);
     //insertMany(table, records);
@@ -70,6 +67,7 @@ void insertMany(Table& table, vector<Record> records)
     cout << endl;
 }
 
+
 void getAllBlockRecords(Table& table)
 {
     cout << "[Block] Get All Block Records" << endl;
@@ -92,11 +90,11 @@ void findOne(Table& table)
 {
     cout << "[Find] Random Id" << endl;
 
-    std::random_device rd; // obtain a random number from hardware
-    std::mt19937 gen(rd()); // seed the generator
-    std::uniform_int_distribution<unsigned long long> distr(0, 100000); // define the range
+    //std::random_device rd; // obtain a random number from hardware
+    //std::mt19937 gen(rd()); // seed the generator
+    //std::uniform_int_distribution<unsigned long long> distr(0, 100000); // define the range
 
-    auto id = distr(gen);
+    auto id = 42561;
     cout << "- Id = " << id << endl;
 
     auto start = std::chrono::high_resolution_clock::now();
@@ -123,20 +121,14 @@ void findAllSet(Table& table)
 {
     cout << "[FindAll] Random Set" << endl;
 
-    std::random_device rd; // obtain a random number from hardware
-    std::mt19937 gen(rd()); // seed the generator
-    std::uniform_int_distribution<unsigned long long> distr(0, 100000); // define the range
-    
-    cout << "- Ids = [";
-    int count = 10;
-    auto ids = vector<unsigned long long>();
-    for (int i = 0; i < count; i++)
-    {
-        auto id = distr(gen);
-        cout << id << ", ";
-        ids.push_back(id);
-    }
-    cout << '\b' << '\b' << "]" << endl;
+    vector<unsigned long long> ids;
+
+    ids.push_back(10);
+    ids.push_back(223);
+    ids.push_back(34567);
+    ids.push_back(14);
+    ids.push_back(202);
+    ids.push_back(1112);
 
     auto start = std::chrono::high_resolution_clock::now();
     auto records = table.Select(ids);
@@ -145,30 +137,30 @@ void findAllSet(Table& table)
     cout << "- Duration = " << microseconds.count() << " ms" << endl;
     cout << "- Read Blocks = " << table.GetLastQueryBlockReadAccessCount() << endl;
     cout << "- Write Blocks = " << table.GetLastQueryBlockWriteAccessCount() << endl;
-    printRecords(records);
+    //printRecords(records);
     cout << endl;
 }
 
 void findAllBetween(Table& table)
 {
-    float min = 117;
-    float max = 200;
-    cout << "[FindAll] Weigth Between " << min << " - " << max << endl;
+    unsigned long long min = 117;
+    unsigned long long max = 200;
+    cout << "[FindAll] Id Between " << min << " - " << max << endl;
 
     auto start = std::chrono::high_resolution_clock::now();
-    auto records = table.SelectWhereBetween(NAMEOF(FixedRecord::Weigth).str(), SPANOF(min), SPANOF(max));
+    auto records = table.SelectWhereBetween(NAMEOF(FixedRecord::Id).str(), SPANOF(min), SPANOF(max));
     auto finish = std::chrono::high_resolution_clock::now();
     auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
     cout << "- Duration = " << microseconds.count() << " ms" << endl;
     cout << "- Read Blocks = " << table.GetLastQueryBlockReadAccessCount() << endl;
     cout << "- Write Blocks = " << table.GetLastQueryBlockWriteAccessCount() << endl;
-    printRecords(records);
+    //printRecords(records);
     cout << endl;
 }
 
 void findAllEquals(Table& table)
 {
-    //char city[40] = "Taguatinga";
+    //char city[40] = "Sorocaba";
     //cout << "[FindAll] City = " << city << endl;
     
     float weight = 117;
@@ -179,21 +171,30 @@ void findAllEquals(Table& table)
     cout << "- Duration = " << microseconds.count() << " ms" << endl;
     cout << "- Read Blocks = " << table.GetLastQueryBlockReadAccessCount() << endl;
     cout << "- Write Blocks = " << table.GetLastQueryBlockWriteAccessCount() << endl;
-    printRecords(records);
+    //printRecords(records);
     cout << endl;
 }
 
 void deleteOne(Table& table)
 {
+    auto id = 53428;
+    cout << "[DeleteOne] Id = " << id << endl;
 
+    auto start = std::chrono::high_resolution_clock::now();
+    table.Delete(id);
+    auto finish = std::chrono::high_resolution_clock::now();
+    auto microseconds = std::chrono::duration_cast<std::chrono::milliseconds>(finish - start);
+    cout << "- Duration = " << microseconds.count() << " ms" << endl;
+    cout << "- Read Blocks = " << table.GetLastQueryBlockReadAccessCount() << endl;
+    cout << "- Write Blocks = " << table.GetLastQueryBlockWriteAccessCount() << endl;
+    cout << endl;
 }
 
 void deleteAllEquals(Table& table)
 {
-    //char city[40] = "Taguatinga";
-    //cout << "[DeleteAll] City = " << city << endl;
-    float weight = 55554.0;
+    float weight = 117.0;
     cout << "[DeleteAll] Weight = " << weight << endl;
+    
 
     auto start = std::chrono::high_resolution_clock::now();
     auto records = table.DeleteWhereEquals(NAMEOF(FixedRecord::Weigth).str(), SPANOF(weight));
