@@ -68,6 +68,11 @@ void Block::Retreat()
 	m_Records.Retreat();
 }
 
+void Block::Advance()
+{
+	m_Records.Advance();
+}
+
 void Block::Remove()
 {
 	m_Records.Remove();

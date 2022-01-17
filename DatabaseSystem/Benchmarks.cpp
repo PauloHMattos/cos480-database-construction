@@ -38,7 +38,7 @@ int main()
     findAllSet(table);
     findAllBetween(table);
     findAllEquals(table);
-    /*/
+    //*/
 
     //*
     deleteAllEquals(table);

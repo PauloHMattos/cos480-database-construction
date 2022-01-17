@@ -29,14 +29,16 @@ protected:
 	// Inherited via BaseRecordManager
 	virtual FileHead* CreateNewFileHead(Schema* schema) override;
 	virtual FileWrapper<FileHead>* GetFile() override;
-	virtual void DeleteInternal(unsigned long long blockId, unsigned long long recordNumberInBlock) override;
+	virtual void DeleteInternal(unsigned long long recordId, unsigned long long blockId, unsigned long long recordNumberInBlock) override;
+	virtual void Reorganize() override;
 
 private:
 	FileWrapper<HashFileHead>* m_File;
 	int m_NumberOfBuckets;
 
 	unsigned int hashFunction(unsigned long long key);
-
+	bool SelectSpan(unsigned long long id, span<unsigned char>* data);
+	
 	struct HashRecord {
 		unsigned long long Id;
 	};

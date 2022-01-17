@@ -29,16 +29,15 @@ unsigned int HashRecordManager::hashFunction(unsigned long long key)
 
 Record* HashRecordManager::Select(unsigned long long id)
 {
-    m_LastQueryBlockAccessCount = 0;
+    ClearAccessCount();
     unsigned int bucketNumber = hashFunction(id);
     auto record = new Record(GetSchema());
     m_NextReadBlockNumber = m_File->GetHead()->Buckets[bucketNumber].blockNumber;
     while (m_NextReadBlockNumber != -1) {
-        if (!m_File->GetBlock(m_NextReadBlockNumber, m_ReadBlock)) {
+        if (!ReadBlock(m_ReadBlock, m_NextReadBlockNumber)) {
             Assert(false, "Invalid block");
             return nullptr;
         }
-        m_LastQueryBlockAccessCount++;
         m_ReadBlock->MoveToStart();
         while (m_ReadBlock->GetRecord(record->GetData())) {
             if (record->getId() == id) {
@@ -50,24 +49,45 @@ Record* HashRecordManager::Select(unsigned long long id)
     return nullptr;
 }
 
+bool HashRecordManager::SelectSpan(unsigned long long id, span<unsigned char>* data)
+{
+    ClearAccessCount();
+    unsigned int bucketNumber = hashFunction(id);
+    auto record = new Record(GetSchema());
+    auto blockNumber = m_File->GetHead()->Buckets[bucketNumber].blockNumber;
+    while (blockNumber != -1) {
+        if (!ReadBlock(m_ReadBlock, blockNumber)) {
+            Assert(false, "Invalid block");
+            return false;
+        }
+        m_ReadBlock->MoveToStart();
+        while (m_ReadBlock->GetPosition() < m_ReadBlock->GetRecordsCount() && m_ReadBlock->GetCurrentSpan(data)) {
+            if (record->getId() == id) {
+                return true;
+            }
+            m_ReadBlock->Advance();
+        }
+        blockNumber = *(unsigned long long*)m_ReadBlock->GetHeader().data();
+    }
+    return false;
+}
+
 vector<Record*> HashRecordManager::SelectWhereEquals(unsigned int columnId, span<unsigned char> data)
 {
     if (columnId != 0) {
         return BaseRecordManager::SelectWhereEquals(columnId, data);
     }
-
-    m_LastQueryBlockAccessCount = 0;
+    ClearAccessCount();
     auto records = vector<Record*>();
     auto id = *(unsigned long long*)data.data();
     unsigned int bucketNumber = hashFunction(id);
     auto record = new Record(GetSchema());
     auto nextBucketBlockNumber = m_File->GetHead()->Buckets[bucketNumber].blockNumber;
     while (nextBucketBlockNumber != -1) {
-        if (!m_File->GetBlock(nextBucketBlockNumber, m_ReadBlock)) {
+        if (!ReadBlock(m_ReadBlock, nextBucketBlockNumber)) {
             Assert(false, "Invalid block");
             break;
         }
-        m_LastQueryBlockAccessCount++;
         m_ReadBlock->MoveToStart();
         while (m_ReadBlock->GetRecord(record->GetData())) {
             records.push_back(record);
@@ -79,7 +99,7 @@ vector<Record*> HashRecordManager::SelectWhereEquals(unsigned int columnId, span
 
 void HashRecordManager::Insert(Record record)
 {
-    m_LastQueryBlockAccessCount = 0;
+    ClearAccessCount();
 
     auto hashRecord = record.As<HashRecord>();
     hashRecord->Id = m_File->GetHead()->NextId;
@@ -89,14 +109,13 @@ void HashRecordManager::Insert(Record record)
     auto nextBucketBlockNumber = m_File->GetHead()->Buckets[bucketHash].blockNumber;
     unsigned long long previousBucketBlockNumber = -1;
     if (nextBucketBlockNumber != -1) {
-        if (!m_File->GetBlock(nextBucketBlockNumber, m_ReadBlock)) {
+        if (!ReadBlock(m_ReadBlock, nextBucketBlockNumber)) {
             Assert(false, "Invalid block");
             return;
         }
-        m_LastQueryBlockAccessCount++;
         if (m_ReadBlock->GetRecordsCount() < m_RecordsPerBlock) {
             m_ReadBlock->Append(*record.GetData());
-            m_File->WriteBlock(m_ReadBlock, nextBucketBlockNumber);
+            WriteBlock(m_ReadBlock, nextBucketBlockNumber);
             return;
         }
         previousBucketBlockNumber = nextBucketBlockNumber;
@@ -106,7 +125,7 @@ void HashRecordManager::Insert(Record record)
     m_WriteBlock->Clear();
     memcpy(m_WriteBlock->GetHeader().data(), (const char*)&previousBucketBlockNumber, sizeof(previousBucketBlockNumber));
     m_WriteBlock->Append(*record.GetData());
-    m_File->AddBlock(m_WriteBlock);
+    AddBlock(m_WriteBlock);
 
     nextBucketBlockNumber = m_File->GetHead()->GetBlocksCount() - 1;
     m_File->GetHead()->Buckets[bucketHash].blockNumber = nextBucketBlockNumber;
@@ -116,48 +135,42 @@ void HashRecordManager::Delete(unsigned long long id)
 {
     int removedCount = 0;
     unsigned int bucketNumber = hashFunction(id);
-    auto nextBucketBlockNumber = m_File->GetHead()->Buckets[bucketNumber].blockNumber;
     auto schema = GetSchema();
-    auto tmpRemovedRecord = new Record(schema);
 
-    auto record = Select(id);
-    if (record == nullptr) {
+    span<unsigned char> recordToRemove;
+    if (SelectSpan(id, &recordToRemove)) {
         Assert(false, "Record not found");
         return;
     }
-    auto blockId = m_NextReadBlockNumber;
-    auto recordNumberInBlock = m_ReadBlock->GetPosition() - 1;
 
-    while (nextBucketBlockNumber != -1) {
-        if (!m_File->GetBlock(nextBucketBlockNumber, m_ReadBlock)) {
+    auto nextBucketBlockNumber = m_File->GetHead()->Buckets[bucketNumber].blockNumber;
+    while (nextBucketBlockNumber != 1) {
+        if (!ReadBlock(m_WriteBlock, nextBucketBlockNumber)) {
             Assert(false, "Invalid block");
+            return;
+        }
+        if (m_WriteBlock->GetRecordsCount() > 0)
+        {
             break;
         }
-        m_LastQueryBlockAccessCount++;
-        m_ReadBlock->MoveToEnd();
-        m_ReadBlock->Retreat();
-        m_ReadBlock->GetRecord(tmpRemovedRecord->GetData());
-        nextBucketBlockNumber = *(unsigned long long*)m_ReadBlock->GetHeader().data();
+        nextBucketBlockNumber = *(unsigned long long*)m_WriteBlock->GetHeader().data();
     }
-    m_ReadBlock->Retreat();
-    m_ReadBlock->Remove();
-    
-    memcpy(record->GetData(), tmpRemovedRecord->GetData(), GetSchema()->GetSize());
-    m_WriteBlock->Clear();
-    m_ReadBlock->MoveToStart();
-    auto currentRecord = new Record(schema);
-    auto recordCounter = 0;
-    while(m_ReadBlock->GetRecord(currentRecord->GetData()))
+
+    m_WriteBlock->MoveToEnd();
+    m_WriteBlock->Retreat();
+    span<unsigned char> tmpRemovedRecord;
+    if (!m_WriteBlock->GetRecordSpan(m_WriteBlock->GetRecordsCount() - 1, &tmpRemovedRecord))
     {
-        auto recordData = currentRecord->GetData();
-        if (recordCounter == recordNumberInBlock)
-        {
-            recordData = record->GetData();
-        }
-        m_WriteBlock->Append(*recordData);
-        recordCounter++;
+        Assert(false, "Invalid record");
+        return;
     }
-    m_File->WriteBlock(m_WriteBlock, blockId);
+    m_WriteBlock->Remove();
+
+    memcpy(recordToRemove.data(), tmpRemovedRecord.data(), GetSchema()->GetSize());
+
+    auto blockId = m_NextReadBlockNumber - 1;
+    WriteBlock(m_ReadBlock, blockId);
+    WriteBlock(m_WriteBlock, nextBucketBlockNumber);
 }
 
 int HashRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned char> data)
@@ -188,7 +201,11 @@ FileWrapper<FileHead>* HashRecordManager::GetFile()
     return (FileWrapper<FileHead>*)m_File;
 }
 
-void HashRecordManager::DeleteInternal(unsigned long long blockId, unsigned long long recordNumberInBlock)
+void HashRecordManager::DeleteInternal(unsigned long long recordId, unsigned long long blockId, unsigned long long recordNumberInBlock)
 {
+    Delete(recordId);
+}
 
+void HashRecordManager::Reorganize()
+{
 }

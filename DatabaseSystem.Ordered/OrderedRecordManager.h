@@ -43,7 +43,7 @@ protected:
     virtual FileHead* CreateNewFileHead(Schema* schema) override;
     virtual FileWrapper<FileHead>* GetFile() override;
     virtual unsigned long long GetBlocksCount() override;
-    virtual void ReadBlock(Block* block, unsigned long long blockId) override;
+    virtual bool ReadBlock(Block* block, unsigned long long blockId) override;
     void MoveToExtension();
     bool MovePrev(Record* record, unsigned long long& accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock);
     virtual void DeleteInternal(unsigned long long blockNumber, unsigned long long recordNumberInBlock);
@@ -61,8 +61,8 @@ private:
 
     void AddToExtension(Block* block);
     void WriteToExtension(Block* block, unsigned long long blockNumber);
-    void GetBlockFromExtension(Block* block, unsigned long long blockNumber);
-    void GetBlockFromMainFile(Block* block, unsigned long long blockNumber);
+    bool GetBlockFromExtension(Block* block, unsigned long long blockNumber);
+    bool GetBlockFromMainFile(Block* block, unsigned long long blockNumber);
     void ReadPrevBlock();
     void MemoryReorder(); // reads all records from main file and extension file into memory and reorders, for debugging
     void ReorganizeInternal();  // inserts records from extension file into main file, reordering

@@ -150,6 +150,9 @@
     <ProjectReference Include="..\DatabaseSystem.Core\DatabaseSystem.Core.vcxproj">
       <Project>{5aed0241-a4ac-4509-a91a-1bd2954cf54c}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\DatabaseSystems.Heap\DatabaseSystems.Heap.vcxproj">
+      <Project>{a36e3d47-20e3-4422-801f-ed9748b68237}</Project>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Bucket.cpp" />
