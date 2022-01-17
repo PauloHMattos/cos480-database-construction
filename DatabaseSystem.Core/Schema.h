@@ -14,10 +14,21 @@ public:
 
 	void Write(ostream& out, vector<unsigned char>* data);
 
+	// Var length
+	bool IsVarLengthColumn(ColumnType type);
+	unsigned int GetVarSize() const;
+	unsigned int GetRecordHeadSize() const;
+
 	// Inherited via Serializable
 	void Serialize(iostream& dst) override;
 	void Deserialize(iostream& src) override;
+
+	void ProcessOutColumn(ostream& out, vector<unsigned char>* data, size_t i, size_t &offset, unsigned int length);
+
 private:
 	vector<Column> m_Columns;
 	unsigned int m_Size;
+	unsigned int m_VarLengthColumns;
+	vector<unsigned int> m_FixedLengthColumnPos;
+	vector<unsigned int> m_VarLengthColumnPos;
 };

@@ -83,3 +83,8 @@ int Table::DeleteWhereEquals(string columnName, span<unsigned char> data)
     auto columnId = m_RecordManager.GetSchema()->GetColumnId(columnName);
     return m_RecordManager.DeleteWhereEquals(columnId, data);
 }
+
+vector<Record*> Table::SelectBlockRecords(unsigned long long blockId)
+{
+    return m_RecordManager.SelectBlock(blockId);
+}
