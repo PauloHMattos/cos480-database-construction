@@ -114,7 +114,7 @@ bool Block::GetRecordSpan(unsigned long long recordNumberInBlock, span<unsigned 
 
 bool Block::GetRecordBack(vector<unsigned char>* record)
 {
-	if (m_Records.LeftLength())
+	if (m_Records.LeftLength() >= 0 && m_Records.LeftLength() < GetRecordsCount())
 	{
 		memcpy(record->data(), m_Records.Current(0)->data(), record->size());
 		m_Records.Retreat();

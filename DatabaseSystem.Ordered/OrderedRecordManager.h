@@ -46,7 +46,7 @@ protected:
     virtual bool ReadBlock(Block* block, unsigned long long blockId) override;
     void MoveToExtension();
     bool MovePrev(Record* record, unsigned long long& accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock);
-    virtual void DeleteInternal(unsigned long long blockNumber, unsigned long long recordNumberInBlock);
+    virtual void DeleteInternal(unsigned long long recordId, unsigned long long blockNumber, unsigned long long recordNumberInBlock);
     bool GetNextRecordInFile(Record* record);
     bool GetPrevRecordInFile(Record* record);
     virtual void Reorganize() override;  // inserts records from extension file into main file, reordering

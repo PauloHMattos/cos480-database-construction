@@ -310,7 +310,7 @@ void OrderedRecordManager::Delete(unsigned long long id)
         blockId = m_NextReadBlockNumber;
         recordNumberInBlock = m_ReadBlock->GetPosition() - 1;
     }
-    DeleteInternal(blockId, recordNumberInBlock);
+    DeleteInternal(id, blockId, recordNumberInBlock);
     Reorganize();
 }
 
@@ -372,7 +372,7 @@ int OrderedRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned
                 {
                     enteredRange = true; // found something equal to data, we are inside the range
                     removedCount++;
-                    DeleteInternal(blockId, recordNumberInBlock);
+                    DeleteInternal(currentRecord->getId(), blockId, recordNumberInBlock);
                 }
             }
         }
@@ -397,7 +397,7 @@ int OrderedRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned
             if (Column::Equals(column, value, data))
             {
                 removedCount++;
-                DeleteInternal(blockId, recordNumberInBlock);
+                DeleteInternal(currentRecord->getId(), blockId, recordNumberInBlock);
             }
         }
         return removedCount;
@@ -433,7 +433,7 @@ bool OrderedRecordManager::MovePrev(Record* record, unsigned long long& accessed
     return returnVal;
 }
 
-void OrderedRecordManager::DeleteInternal(unsigned long long blockNumber, unsigned long long recordNumberInBlock)
+void OrderedRecordManager::DeleteInternal(unsigned long long recordId, unsigned long long blockNumber, unsigned long long recordNumberInBlock)
 {
     auto mainFileHead = m_File->GetHead();
     auto extensionFileHead = m_ExtensionFile->GetHead();
@@ -505,7 +505,7 @@ bool OrderedRecordManager::GetPrevRecordInFile(Record* record)
     auto recordData = record->GetData();
     auto blocksInFile = m_File->GetHead()->GetBlocksCount() + m_ExtensionFile->GetHead()->GetBlocksCount();
 
-    while (blocksInFile > 0 && m_NextReadBlockNumber > -1)
+    while (blocksInFile > 0 && m_NextReadBlockNumber >= 0)
     {
         while (m_ReadBlock->GetRecordBack(recordData))
         {
