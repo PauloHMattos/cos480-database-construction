@@ -7,7 +7,7 @@ OrderedRecordManager::OrderedRecordManager(size_t blockSize) :
     m_File(new FileWrapper<OrderedFileHead>(blockSize)),
     m_ExtensionFile(new FileWrapper<OrderedFileHead>(blockSize)),
     m_OrderedByColumnId(0),
-    m_MaxExtensionFileSize(2),
+    m_MaxExtensionFileSize(1000),
     m_DeletedRecords(0),
     m_MaxPercentEmptySpace(0.2)
 {
@@ -553,11 +553,13 @@ void OrderedRecordManager::MoveToExtension()
 void OrderedRecordManager::AddToExtension(Block* block)
 {
     m_ExtensionFile->AddBlock(block);
+    m_LastQueryBlockWriteAccessCount++;
 }
 
 void OrderedRecordManager::WriteToExtension(Block* block, unsigned long long blockNumber)
 {
     m_ExtensionFile->WriteBlock(block, blockNumber);
+    m_LastQueryBlockWriteAccessCount++;
 }
 
 void OrderedRecordManager::GetBlockFromExtension(Block* block, unsigned long long blockNumber)
@@ -565,6 +567,7 @@ void OrderedRecordManager::GetBlockFromExtension(Block* block, unsigned long lon
     block->Clear();
     m_ExtensionFile->GetBlock(blockNumber, block);
     block->MoveToStart();
+    m_LastQueryBlockReadAccessCount++;
 }
 
 void OrderedRecordManager::GetBlockFromMainFile(Block* block, unsigned long long blockNumber)
@@ -572,6 +575,7 @@ void OrderedRecordManager::GetBlockFromMainFile(Block* block, unsigned long long
     block->Clear();
     m_File->GetBlock(blockNumber, block);
     block->MoveToStart();
+    m_LastQueryBlockReadAccessCount++;
 }
 
 void OrderedRecordManager::ReadPrevBlock()
