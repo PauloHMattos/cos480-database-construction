@@ -52,7 +52,6 @@ vector<Record> Record::LoadFromCsv(Schema& schema, string path, unsigned long lo
 			columnId++;
 		}
 		result.push_back(record);
-		cnt++;
 	}
 	return result;
 }
