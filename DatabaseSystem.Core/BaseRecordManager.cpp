@@ -103,7 +103,7 @@ Record* BaseRecordManager::Select(unsigned long long id)
 
 	auto schema = GetSchema();
 	auto currentRecord = new Record(schema);
-
+	
 	MoveToStart();
 	while (MoveNext(currentRecord, accessedBlocks))
 	{
@@ -352,4 +352,32 @@ bool BaseRecordManager::TryGetNextValidRecord(Record* record)
 		ReadNextBlock();
 	}
 	return false;
+}
+
+vector<Record*> BaseRecordManager::SelectBlock(unsigned long long blockIdReq)
+{
+	unsigned long long accessedBlocks = 0;
+
+	auto schema = GetSchema();
+	auto currentRecord = Record(schema);
+
+	
+	auto records = vector<Record*>();
+	unsigned long long blockId;
+	unsigned long long recordNumberInBlock;
+
+	MoveToStart();
+	while (MoveNext(&currentRecord, accessedBlocks, blockId, recordNumberInBlock))
+	{
+		if (blockId == blockIdReq) {
+			auto newRecord = new Record(schema);
+			memcpy(newRecord->GetData()->data(), currentRecord.GetData()->data(), schema->GetSize());
+			records.push_back(newRecord);
+		}
+
+		if (blockId > blockIdReq)
+			break;
+	}
+
+	return records;
 }

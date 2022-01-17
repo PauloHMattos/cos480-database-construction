@@ -20,6 +20,7 @@ unsigned int Column::GetLength() const
 	case ColumnType::CHAR:
 		return sizeof(char) * ArraySize;
 
+	case ColumnType::VARCHAR:
 	default:
 		return 0;
 	}
@@ -138,10 +139,12 @@ void Column::Parse(const Column& column, span<unsigned char> destination, string
 void Column::WriteValue(ostream& out, const Column& column, span<unsigned char> value) 
 {
 
+	/*
 	if (value.size() != column.GetLength())
 	{
 		throw runtime_error("value.size() != column.getLength()");
 	}
+	*/
 
 	switch (column.Type)
 	{
@@ -162,6 +165,7 @@ void Column::WriteValue(ostream& out, const Column& column, span<unsigned char> 
 		break;
 
 	case ColumnType::CHAR:
+	case ColumnType::VARCHAR:
 		out.write((const char*)value.data(), value.size());
 		break;
 
