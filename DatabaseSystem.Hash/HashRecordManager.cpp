@@ -32,9 +32,9 @@ Record* HashRecordManager::Select(unsigned long long id)
     m_LastQueryBlockAccessCount = 0;
     unsigned int bucketNumber = hashFunction(id);
     auto record = new Record(GetSchema());
-    auto nextBucketBlockNumber = m_File->GetHead()->Buckets[bucketNumber].blockNumber;
-    while (nextBucketBlockNumber != -1) {
-        if (!m_File->GetBlock(nextBucketBlockNumber, m_ReadBlock)) {
+    m_NextReadBlockNumber = m_File->GetHead()->Buckets[bucketNumber].blockNumber;
+    while (m_NextReadBlockNumber != -1) {
+        if (!m_File->GetBlock(m_NextReadBlockNumber, m_ReadBlock)) {
             Assert(false, "Invalid block");
             return nullptr;
         }
@@ -45,7 +45,7 @@ Record* HashRecordManager::Select(unsigned long long id)
                 return record;
             }
         }
-        nextBucketBlockNumber = *(unsigned long long*)m_ReadBlock->GetHeader().data();
+        m_NextReadBlockNumber = *(unsigned long long*)m_ReadBlock->GetHeader().data();
     }
     return nullptr;
 }
@@ -114,14 +114,68 @@ void HashRecordManager::Insert(Record record)
 
 void HashRecordManager::Delete(unsigned long long id)
 {
-    //unsigned int bucketNumber = hashFunction(id);
+    int removedCount = 0;
+    unsigned int bucketNumber = hashFunction(id);
+    auto nextBucketBlockNumber = m_File->GetHead()->Buckets[bucketNumber].blockNumber;
+    auto schema = GetSchema();
+    auto tmpRemovedRecord = new Record(schema);
 
-    //Block* currentBlock = m_Buckets[bucketNumber].block;
+    auto record = Select(id);
+    if (record == nullptr) {
+        Assert(false, "Record not found");
+        return;
+    }
+    auto blockId = m_NextReadBlockNumber;
+    auto recordNumberInBlock = m_ReadBlock->GetPosition() - 1;
 
-    //if (currentBlock) {
-    //    Record* record = Select(id);
-    //    // mark as deleted
-    //}
+    while (nextBucketBlockNumber != -1) {
+        if (!m_File->GetBlock(nextBucketBlockNumber, m_ReadBlock)) {
+            Assert(false, "Invalid block");
+            break;
+        }
+        m_LastQueryBlockAccessCount++;
+        m_ReadBlock->MoveToEnd();
+        m_ReadBlock->Retreat();
+        m_ReadBlock->GetRecord(tmpRemovedRecord->GetData());
+        nextBucketBlockNumber = *(unsigned long long*)m_ReadBlock->GetHeader().data();
+    }
+    m_ReadBlock->Retreat();
+    m_ReadBlock->Remove();
+    
+    memcpy(record->GetData(), tmpRemovedRecord->GetData(), GetSchema()->GetSize());
+    m_WriteBlock->Clear();
+    m_ReadBlock->MoveToStart();
+    auto currentRecord = new Record(schema);
+    auto recordCounter = 0;
+    while(m_ReadBlock->GetRecord(currentRecord->GetData()))
+    {
+        auto recordData = currentRecord->GetData();
+        if (recordCounter == recordNumberInBlock)
+        {
+            recordData = record->GetData();
+        }
+        m_WriteBlock->Append(*recordData);
+        recordCounter++;
+    }
+    m_File->WriteBlock(m_WriteBlock, blockId);
+}
+
+int HashRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned char> data)
+{
+    if (columnId != 0) {
+        return BaseRecordManager::DeleteWhereEquals(columnId, data);
+    }
+
+    auto id = *(unsigned long long*)data.data();
+    auto record = Select(id);
+    if (record == nullptr) {
+        Assert(false, "Record not found");
+        return 0;
+    }
+
+    Delete(id);
+
+    return 1;
 }
 
 FileHead* HashRecordManager::CreateNewFileHead(Schema* schema)

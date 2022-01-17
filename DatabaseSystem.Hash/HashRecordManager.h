@@ -6,9 +6,9 @@
 #include "HashFileHead.h"
 
 /*
-	Heap, ou arquivo sem qualquer ordenação, com registros de tamanho fixos,
-	inserção de novos ao final do arquivo, e remoção baseada em lista encadeada dos registros removidos,
-	que deverão ser reaproveitados em uma nova inserção posterior a remoção.
+	Hash externo estático, com registros distribuídos segundo o campo Id como chave de hashing.
+	Foi utilizada a função módulo usando o número de buckets alocados como função de hashing.
+	O tratamento de colisão foi feito por meio do conjunto de overflow buckets.
 */
 class HashRecordManager : public BaseRecordManager
 {
@@ -23,6 +23,7 @@ public:
 
 	virtual void Insert(Record record) override;
 	virtual void Delete(unsigned long long id) override;
+	virtual int DeleteWhereEquals(unsigned int columnId, span<unsigned char> data);
 
 protected:
 	// Inherited via BaseRecordManager
