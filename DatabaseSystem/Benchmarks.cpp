@@ -29,7 +29,7 @@ int main()
     auto table = Table(heap);
     //table.Load(dbPath);
     table.Create(dbPath, fixedSchema);
-    auto records = Record::LoadFromCsv(*fixedSchema, ".\\cbd.csv", -1);
+    auto records = Record::LoadFromCsv(*fixedSchema, ".\\cbd.csv", 9001);
 
     insertMany(table, records);
     /*
@@ -42,7 +42,7 @@ int main()
     //*
     deleteAllEquals(table);
     findAllEquals(table);
-    insertMany(table, records);
+    //insertMany(table, records);
     //*/
 
     table.Close();

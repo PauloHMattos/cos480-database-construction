@@ -65,7 +65,7 @@ private:
     void GetBlockFromMainFile(Block* block, unsigned long long blockNumber);
     void ReadPrevBlock();
     void MemoryReorder(); // reads all records from main file and extension file into memory and reorders, for debugging
-    void Compress(); // removes records marked as deleted from the file, compressing the empty space
+    void ReorganizeInternal();  // inserts records from extension file into main file, reordering
     Record* BinarySearch(span<unsigned char> target, EvalFunctionType evalFunc, unsigned long long& accessedBlocks);
     vector<Partition> SplitPartitions(vector<Partition> partitons);
     vector<Partition> Split(Partition p);

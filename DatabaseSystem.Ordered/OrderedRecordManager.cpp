@@ -37,7 +37,7 @@ void OrderedRecordManager::Close()
 {
     if (m_ExtensionFile->GetHead()->GetBlocksCount() > 0) 
     {
-        Reorganize();
+        ReorganizeInternal();
     }
     m_File->Close();
     m_ExtensionFile->Close();
@@ -67,7 +67,7 @@ void OrderedRecordManager::Insert(Record record)
         if (blocksCount == m_MaxExtensionFileSize)
         {
             // if Extension File has reached max size, call Reorder
-            Reorganize();
+            ReorganizeInternal();
         }
     }
 
@@ -299,11 +299,7 @@ vector<Record *> OrderedRecordManager::SelectWhereEquals(unsigned int columnId, 
 void OrderedRecordManager::Delete(unsigned long long id)
 {
     auto schema = GetSchema();
-    auto recordSize = schema->GetSize();
-    if (m_DeletedRecords * recordSize >= m_MaxPercentEmptySpace * GetSize())
-    {
-        Compress();
-    }
+    
     auto record = Select(id);
     auto blockId = m_NextReadBlockNumber - 1;
     auto recordNumberInBlock = m_ReadBlock->GetPosition() - 1;
@@ -315,16 +311,13 @@ void OrderedRecordManager::Delete(unsigned long long id)
         recordNumberInBlock = m_ReadBlock->GetPosition() - 1;
     }
     DeleteInternal(blockId, recordNumberInBlock);
+    Reorganize();
 }
 
 int OrderedRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned char> data)
 {
     auto schema = GetSchema();
-    auto recordSize = schema->GetSize();
-    if (m_DeletedRecords * recordSize == m_MaxPercentEmptySpace * GetSize())
-    {
-        Compress();
-    }
+    
 
     // if the file is ordered by the column we are selecting
     if (columnId == m_OrderedByColumnId) {
@@ -648,7 +641,20 @@ function<bool(Record, Record)> MakeComparer(Schema* schema, unsigned int columnI
 
 void OrderedRecordManager::Reorganize()
 {
-    if (DEBUG) 
+    auto schema = GetSchema();
+    auto recordSize = schema->GetSize();
+    if (m_DeletedRecords * recordSize < m_MaxPercentEmptySpace * GetSize())
+    {
+        return;
+    }
+    ReorganizeInternal();
+}
+
+
+void OrderedRecordManager::ReorganizeInternal()
+{
+    auto schema = GetSchema();
+    if (DEBUG)
     {
         MemoryReorder();
         return;
@@ -656,7 +662,6 @@ void OrderedRecordManager::Reorganize()
 
     unsigned long long accessedBlocks = 0;
 
-    auto schema = GetSchema();
     Record record = Record(schema);
     auto recordSize = schema->GetSize();
 
@@ -715,7 +720,7 @@ void OrderedRecordManager::Reorganize()
     }
 }
 
-void OrderedRecordManager::MemoryReorder() 
+void OrderedRecordManager::MemoryReorder()
 {
     auto records = vector<Record>();
     auto schema = GetSchema();
@@ -752,7 +757,7 @@ void OrderedRecordManager::MemoryReorder()
     // Write back to m_File
     m_File->SeekHead();
     m_WriteBlock->Clear();
-    for (auto &record : records) {
+    for (auto& record : records) {
         auto recordData = record.GetData();
         m_WriteBlock->Append(*recordData);
 
@@ -762,11 +767,6 @@ void OrderedRecordManager::MemoryReorder()
             m_WriteBlock->Clear();
         }
     }
-}
-
-void OrderedRecordManager::Compress()
-{
-    Reorganize(); // records with id -1 will be pushed to the end
 }
 
 Record* OrderedRecordManager::BinarySearch(span<unsigned char> target, EvalFunctionType evalFunc, unsigned long long& accessedBlocks)
