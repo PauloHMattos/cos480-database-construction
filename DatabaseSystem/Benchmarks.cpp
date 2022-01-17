@@ -27,12 +27,12 @@ int main()
 {
     auto varSchema = VarRecord::CreateSchema();
 
-    auto dbPath = "C:\\Users\\guilh\\Documents\\ECI\\COS480\\cos480-database-construction\\DatabaseSystem\\x64\\Debug\\test.db";
+    auto dbPath = ".\\test.db";
     auto heap = HeapVarRecordManager(4096, 0);
     auto table = Table(heap);
     //table.Load(dbPath);
     table.Create(dbPath, varSchema);
-    auto records = Record::LoadFromCsv(*varSchema, "C:\\Users\\guilh\\Documents\\ECI\\COS480\\cos480-database-construction\\DatabaseSystem\\x64\\Debug\\cbd.csv", -1);
+    auto records = Record::LoadFromCsv(*varSchema, ".\\cbd.csv", -1);
 
     insertMany(table, records);
     /*

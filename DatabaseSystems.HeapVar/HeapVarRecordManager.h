@@ -13,16 +13,13 @@
 class HeapVarRecordManager : public BaseRecordManager
 {
 public:
-	HeapVarRecordManager(size_t blockSize, int reorderCount);
-	virtual void Create(string path, Schema* schema) override;
-	virtual void Open(string path) override;
-	virtual void Close() override;
+	HeapVarRecordManager(size_t blockSize, float maxPercentEmptySpace);
 
 	// Inherited via BaseRecordManager
 	virtual void Insert(Record record) override;
 
 	void UpdateRecordRangePos(unsigned int maxRecord, unsigned int bytesShifted);
-	void Reorganize();
+	virtual void Reorganize() override;
 
 protected:
 	// Inherited via BaseRecordManager
@@ -34,14 +31,7 @@ protected:
 
 private:
 	FileWrapper<HeapVarFileHead>* m_File;
-	Block* m_ReadBlock;
-	Block* m_WriteBlock;
-	unsigned long long m_NextReadBlockNumber;
-	unsigned long long m_RecordsPerBlock;
-	int m_ReorganizeCount;
-
-	void WriteAndRead();
-	void ReadNextBlock();
+	float m_MaxPercentEmptySpace;
 
 	struct HeapVarRecord {
 		unsigned long long Id;
