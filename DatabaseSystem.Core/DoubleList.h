@@ -130,28 +130,6 @@ public:
 		return temp->data;
 	}
 
-	// get a reference to the current item, plus the offset given
-	T* Peek(int offset)
-	{
-		Node* temp = list->current->next;
-
-		if (offset < 0)
-		{
-			for (int i = 0; i < offset; i++)
-			{
-				temp = temp->previous;
-			}
-		}
-		else
-		{
-			for (int i = 0; i < offset; i++)
-			{
-				temp = temp->next;
-			}
-		}
-		return temp->data;
-	}
-
 	// move the current pointer position backward through the list
 	void Retreat()
 	{

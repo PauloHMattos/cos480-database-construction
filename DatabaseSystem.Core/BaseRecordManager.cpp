@@ -18,7 +18,7 @@ void BaseRecordManager::Create(string path, Schema* schema)
 
 	auto schemaSize = GetSchema()->GetSize();
 	auto blockLength = GetFile()->GetBlockSize();
-	auto blockContentLength = GetFile()->GetBlockSize() - sizeof(unsigned int);
+	auto blockContentLength = GetFile()->GetBlockSize() - sizeof(unsigned int) - GetFile()->GetBlockHeaderSize();
 	m_RecordsPerBlock = floor(blockContentLength / schemaSize);
 
 	m_ReadBlock = GetFile()->CreateBlock();
@@ -206,7 +206,7 @@ void BaseRecordManager::Delete(unsigned long long recordId)
 	{
 		if (currentRecord.getId() == recordId)
 		{
-			DeleteInternal(blockId, recordNumberInBlock);
+			DeleteInternal(recordId, blockId, recordNumberInBlock);
 			break;
 		}
 	}
@@ -233,7 +233,7 @@ int BaseRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned ch
 		auto value = schema->GetValue(currentRecord.GetData(), columnId);
 		if (Column::Equals(column, value, data))
 		{
-			DeleteInternal(blockId, recordNumberInBlock);
+			DeleteInternal(currentRecord.getId(), blockId, recordNumberInBlock);
 			removedCount++;
 		}
 	}
@@ -281,10 +281,11 @@ unsigned long long BaseRecordManager::GetBlocksCount()
 	return GetFile()->GetHead()->GetBlocksCount();
 }
 
-void BaseRecordManager::ReadNextBlock()
+bool BaseRecordManager::ReadNextBlock()
 {
-	ReadBlock(m_ReadBlock, m_NextReadBlockNumber);
+	auto r = ReadBlock(m_ReadBlock, m_NextReadBlockNumber);
 	m_NextReadBlockNumber++;
+	return r;
 }
 
 void BaseRecordManager::WriteBlock(Block* block, unsigned long long blockId)
@@ -299,12 +300,13 @@ void BaseRecordManager::AddBlock(Block* block)
 	m_LastQueryBlockWriteAccessCount++;
 }
 
-void BaseRecordManager::ReadBlock(Block* block, unsigned long long blockId)
+bool BaseRecordManager::ReadBlock(Block* block, unsigned long long blockId)
 {
 	block->Clear();
-	GetFile()->GetBlock(blockId, block);
+	auto r = GetFile()->GetBlock(blockId, block);
 	block->MoveToStart();
 	m_LastQueryBlockReadAccessCount++;
+	return r;
 }
 
 bool BaseRecordManager::TryGetNextValidRecord(Record* record)

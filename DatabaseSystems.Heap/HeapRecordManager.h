@@ -22,7 +22,7 @@ protected:
 	// Inherited via BaseRecordManager
 	virtual FileHead* CreateNewFileHead(Schema* schema) override;
 	virtual FileWrapper<FileHead>* GetFile() override;
-	virtual void DeleteInternal(unsigned long long blockNumber, unsigned long long recordNumberInBlock) override;
+	virtual void DeleteInternal(unsigned long long recordId, unsigned long long blockNumber, unsigned long long recordNumberInBlock) override;
 	virtual void Reorganize() override;
 	
 private:

@@ -555,20 +555,22 @@ void OrderedRecordManager::WriteToExtension(Block* block, unsigned long long blo
     m_LastQueryBlockWriteAccessCount++;
 }
 
-void OrderedRecordManager::GetBlockFromExtension(Block* block, unsigned long long blockNumber)
+bool OrderedRecordManager::GetBlockFromExtension(Block* block, unsigned long long blockNumber)
 {
     block->Clear();
-    m_ExtensionFile->GetBlock(blockNumber, block);
+    auto r = m_ExtensionFile->GetBlock(blockNumber, block);
     block->MoveToStart();
     m_LastQueryBlockReadAccessCount++;
+    return r;
 }
 
-void OrderedRecordManager::GetBlockFromMainFile(Block* block, unsigned long long blockNumber)
+bool OrderedRecordManager::GetBlockFromMainFile(Block* block, unsigned long long blockNumber)
 {
     block->Clear();
-    m_File->GetBlock(blockNumber, block);
+    auto r = m_File->GetBlock(blockNumber, block);
     block->MoveToStart();
     m_LastQueryBlockReadAccessCount++;
+    return r;
 }
 
 void OrderedRecordManager::ReadPrevBlock()
@@ -590,18 +592,20 @@ FileWrapper<FileHead>* OrderedRecordManager::GetFile()
     return (FileWrapper<FileHead>*)m_File;
 }
 
-void OrderedRecordManager::ReadBlock(Block* block, unsigned long long blockId)
+bool OrderedRecordManager::ReadBlock(Block* block, unsigned long long blockId)
 {
+    bool r;
     block->Clear();
     auto mainFileBlockCount = m_File->GetHead()->GetBlocksCount();
     if (blockId < mainFileBlockCount) {
-        GetBlockFromMainFile(block, blockId);
+        r = GetBlockFromMainFile(block, blockId);
     }
     else {
         auto correctedBlockId = m_NextReadBlockNumber - mainFileBlockCount;
-        GetBlockFromExtension(block, correctedBlockId);
+        r = GetBlockFromExtension(block, correctedBlockId);
     }
     block->MoveToStart();
+    return r;
 }
 
 bool GetRecord(Block *block, Record *record)

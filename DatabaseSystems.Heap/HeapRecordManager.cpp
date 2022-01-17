@@ -68,7 +68,7 @@ FileWrapper<FileHead>* HeapRecordManager::GetFile()
     return (FileWrapper<FileHead>*)m_File;
 }
 
-void HeapRecordManager::DeleteInternal(unsigned long long blockNumber, unsigned long long recordNumberInBlock)
+void HeapRecordManager::DeleteInternal(unsigned long long recordId, unsigned long long blockNumber, unsigned long long recordNumberInBlock)
 {
     auto fileHead = m_File->GetHead();
     if (blockNumber == fileHead->GetBlocksCount())

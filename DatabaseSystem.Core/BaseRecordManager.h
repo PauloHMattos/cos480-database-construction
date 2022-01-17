@@ -87,8 +87,8 @@ protected:
 	unsigned long long m_LastQueryBlockWriteAccessCount;
 
 	virtual unsigned long long GetBlocksCount();
-	virtual void ReadNextBlock();
-	virtual void ReadBlock(Block* block, unsigned long long blockId);
+	virtual bool ReadNextBlock();
+	virtual bool ReadBlock(Block* block, unsigned long long blockId);
 	virtual void WriteBlock(Block* block, unsigned long long blockId);
 	virtual void AddBlock(Block* block);
 	
@@ -100,7 +100,7 @@ protected:
 	void ClearAccessCount();
 	virtual FileHead* CreateNewFileHead(Schema* schema) = 0;
 	virtual FileWrapper<FileHead>* GetFile() = 0;
-	virtual void DeleteInternal(unsigned long long blockNumber, unsigned long long recordNumberInBlock) = 0;
+	virtual void DeleteInternal(unsigned long long recordId, unsigned long long blockNumber, unsigned long long recordNumberInBlock) = 0;
 	virtual void Reorganize() = 0;
 };
 
