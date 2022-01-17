@@ -505,7 +505,7 @@ bool OrderedRecordManager::GetPrevRecordInFile(Record* record)
     auto recordData = record->GetData();
     auto blocksInFile = m_File->GetHead()->GetBlocksCount() + m_ExtensionFile->GetHead()->GetBlocksCount();
 
-    while (blocksInFile > 0 && m_NextReadBlockNumber >= 0)
+    while (blocksInFile > 0 && m_NextReadBlockNumber >= 0 && m_NextReadBlockNumber != -1)
     {
         while (m_ReadBlock->GetRecordBack(recordData))
         {
