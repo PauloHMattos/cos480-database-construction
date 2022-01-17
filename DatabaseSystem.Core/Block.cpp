@@ -117,8 +117,7 @@ unsigned int Block::GetCurrRecordSize()
 bool Block::GetRecord(vector<unsigned char>* record)
 {
 	if (m_Records.RightLength() > 0) {
-		auto recordSize = m_Records.Current(0)->size();
-		memcpy(record->data(), m_Records.Current(0)->data(), recordSize);
+		memcpy(record->data(), m_Records.Current(0)->data(), record->size());
 		m_Records.Advance();
 		return true;
 	}
