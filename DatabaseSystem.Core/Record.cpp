@@ -26,7 +26,7 @@ void Record::Write(ostream& out) {
 	m_Schema->Write(out, GetData());
 }
 
-vector<Record> Record::LoadFromCsv(Schema& schema, string path) {
+vector<Record> Record::LoadFromCsv(Schema& schema, string path, unsigned long long lines) {
 	auto result = vector<Record>();
 
 	ifstream infile(path);
@@ -35,8 +35,10 @@ vector<Record> Record::LoadFromCsv(Schema& schema, string path) {
 	
 	// Skip first line
 	getline(infile, line);
-	while (getline(infile, line))
+	auto linesRead = 0ull;
+	while (getline(infile, line) && (lines < 0 || linesRead < lines))
 	{
+		linesRead++;
 		auto record = Record(&schema);
 		auto lineStream = istringstream(line);
 

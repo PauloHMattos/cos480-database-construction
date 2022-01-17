@@ -6,7 +6,8 @@ BaseRecordManager::BaseRecordManager() :
 	m_ReadBlock(nullptr),
 	m_WriteBlock(nullptr),
 	m_RecordsPerBlock(0),
-	m_LastQueryBlockAccessCount(0),
+	m_LastQueryBlockReadAccessCount(0),
+	m_LastQueryBlockWriteAccessCount(0),
 	m_NextReadBlockNumber(0)
 {
 }
@@ -42,7 +43,7 @@ void BaseRecordManager::Close()
 	auto recordsCount = m_WriteBlock->GetRecordsCount();
 	if (recordsCount > 0)
 	{
-		GetFile()->AddBlock(m_WriteBlock);
+		AddBlock(m_WriteBlock);
 	}
 	GetFile()->Close();
 }
@@ -60,9 +61,15 @@ unsigned long long BaseRecordManager::GetSize()
 }
 
 
-unsigned long long BaseRecordManager::GetLastQueryBlockAccessCount() const
+unsigned long long BaseRecordManager::GetLastQueryBlockReadAccessCount() const
 {
-	return m_LastQueryBlockAccessCount;
+	return m_LastQueryBlockReadAccessCount;
+}
+
+
+unsigned long long BaseRecordManager::GetLastQueryBlockWriteAccessCount() const
+{
+	return m_LastQueryBlockWriteAccessCount;
 }
 
 bool BaseRecordManager::MoveNext(Record* record, unsigned long long& accessedBlocks)
@@ -74,17 +81,24 @@ bool BaseRecordManager::MoveNext(Record* record, unsigned long long& accessedBlo
 
 void BaseRecordManager::InsertMany(vector<Record> records)
 {
-	m_LastQueryBlockAccessCount = 0;
-
+	ClearAccessCount();
+	unsigned long long readAccessedBlocks = 0;
+	unsigned long long writeAccessedBlocks = 0;
 	for (auto &record : records) 
 	{
 		Insert(record);
+
+		readAccessedBlocks += m_LastQueryBlockReadAccessCount;
+		writeAccessedBlocks += m_LastQueryBlockWriteAccessCount;
 	}
+	m_LastQueryBlockReadAccessCount = readAccessedBlocks;
+	m_LastQueryBlockWriteAccessCount = writeAccessedBlocks;
 }
 
 Record* BaseRecordManager::Select(unsigned long long id)
 {
-	m_LastQueryBlockAccessCount = 0;
+	ClearAccessCount();
+
 	unsigned long long accessedBlocks = 0;
 
 	auto schema = GetSchema();
@@ -93,7 +107,6 @@ Record* BaseRecordManager::Select(unsigned long long id)
 	MoveToStart();
 	while (MoveNext(currentRecord, accessedBlocks))
 	{
-		m_LastQueryBlockAccessCount += accessedBlocks;
 		if (currentRecord->getId() == id) {
 			return currentRecord;
 		}
@@ -104,24 +117,28 @@ Record* BaseRecordManager::Select(unsigned long long id)
 
 vector<Record*> BaseRecordManager::Select(vector<unsigned long long> ids)
 {
-	unsigned long long accessedBlocks = 0;
+	ClearAccessCount();
+	unsigned long long readAccessedBlocks = 0;
+	unsigned long long writeAccessedBlocks = 0;
 
 	auto records = vector<Record*>();
 	for (auto id : ids)
 	{
 		auto found = Select(id);
-		accessedBlocks += m_LastQueryBlockAccessCount;
+		readAccessedBlocks += m_LastQueryBlockReadAccessCount;
+		writeAccessedBlocks += m_LastQueryBlockWriteAccessCount;
 
 		if (found == nullptr) continue;
 		records.push_back(found);
 	}
-	m_LastQueryBlockAccessCount = accessedBlocks;
+	m_LastQueryBlockReadAccessCount = readAccessedBlocks;
+	m_LastQueryBlockWriteAccessCount = writeAccessedBlocks;
 	return records;
 }
 
 vector<Record*> BaseRecordManager::SelectWhereBetween(unsigned int columnId, span<unsigned char> min, span<unsigned char> max)
 {
-	m_LastQueryBlockAccessCount = 0;
+	ClearAccessCount();
 	unsigned long long accessedBlocks = 0;
 
 	auto records = vector<Record*>();
@@ -133,7 +150,6 @@ vector<Record*> BaseRecordManager::SelectWhereBetween(unsigned int columnId, spa
 	MoveToStart();
 	while (MoveNext(&currentRecord, accessedBlocks))
 	{
-		m_LastQueryBlockAccessCount += accessedBlocks;
 		auto value = schema->GetValue(currentRecord.GetData(), columnId);
 
 		if (Column::Compare(column, value, min) >= 0 && Column::Compare(column, value, max) <= 0)
@@ -148,7 +164,7 @@ vector<Record*> BaseRecordManager::SelectWhereBetween(unsigned int columnId, spa
 
 vector<Record*> BaseRecordManager::SelectWhereEquals(unsigned int columnId, span<unsigned char> data)
 {
-	m_LastQueryBlockAccessCount = 0;
+	ClearAccessCount();
 	unsigned long long accessedBlocks = 0;
 
 	auto records = vector<Record*>();
@@ -160,7 +176,6 @@ vector<Record*> BaseRecordManager::SelectWhereEquals(unsigned int columnId, span
 	MoveToStart();
 	while (MoveNext(&currentRecord, accessedBlocks))
 	{
-		m_LastQueryBlockAccessCount += accessedBlocks;
 		auto value = schema->GetValue(currentRecord.GetData(), columnId);
 
 		if (Column::Equals(column, value, data))
@@ -175,8 +190,9 @@ vector<Record*> BaseRecordManager::SelectWhereEquals(unsigned int columnId, span
 
 void BaseRecordManager::Delete(unsigned long long recordId)
 {
+	ClearAccessCount();
+
 	int removedCount = 0;
-	m_LastQueryBlockAccessCount = 0;
 	unsigned long long accessedBlocks = 0;
 
 	auto schema = GetSchema();
@@ -188,19 +204,20 @@ void BaseRecordManager::Delete(unsigned long long recordId)
 	MoveToStart();
 	while (MoveNext(&currentRecord, accessedBlocks, blockId, recordNumberInBlock))
 	{
-		m_LastQueryBlockAccessCount += accessedBlocks;
 		if (currentRecord.getId() == recordId)
 		{
 			DeleteInternal(blockId, recordNumberInBlock);
-			return;
+			break;
 		}
 	}
+	Reorganize();
 }
 
 int BaseRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned char> data)
 {
+	ClearAccessCount();
+
 	int removedCount = 0;
-	m_LastQueryBlockAccessCount = 0;
 	unsigned long long accessedBlocks = 0;
 
 	auto schema = GetSchema();
@@ -213,17 +230,14 @@ int BaseRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned ch
 	MoveToStart();
 	while (MoveNext(&currentRecord, accessedBlocks, blockId, recordNumberInBlock))
 	{
-		m_LastQueryBlockAccessCount += accessedBlocks;
-
 		auto value = schema->GetValue(currentRecord.GetData(), columnId);
-
 		if (Column::Equals(column, value, data))
 		{
-			removedCount++;
 			DeleteInternal(blockId, recordNumberInBlock);
+			removedCount++;
 		}
 	}
-
+	Reorganize();
 	return removedCount;
 }
 
@@ -256,6 +270,12 @@ bool BaseRecordManager::MoveNext(Record* record, unsigned long long& accessedBlo
 	return returnVal;
 }
 
+void BaseRecordManager::ClearAccessCount()
+{
+	m_LastQueryBlockReadAccessCount = 0;
+	m_LastQueryBlockWriteAccessCount = 0;
+}
+
 unsigned long long BaseRecordManager::GetBlocksCount()
 {
 	return GetFile()->GetHead()->GetBlocksCount();
@@ -263,16 +283,28 @@ unsigned long long BaseRecordManager::GetBlocksCount()
 
 void BaseRecordManager::ReadNextBlock()
 {
-	ReadBlock(m_NextReadBlockNumber);
+	ReadBlock(m_ReadBlock, m_NextReadBlockNumber);
 	m_NextReadBlockNumber++;
 }
 
-void BaseRecordManager::ReadBlock(unsigned long long blockId)
+void BaseRecordManager::WriteBlock(Block* block, unsigned long long blockId)
 {
-	m_ReadBlock->Clear();
-	GetFile()->GetBlock(blockId, m_ReadBlock);
-	m_ReadBlock->MoveToStart();
-	m_WriteBlock->MoveToStart();
+	GetFile()->WriteBlock(block, blockId);
+	m_LastQueryBlockWriteAccessCount++;
+}
+
+void BaseRecordManager::AddBlock(Block* block)
+{
+	GetFile()->AddBlock(block);
+	m_LastQueryBlockWriteAccessCount++;
+}
+
+void BaseRecordManager::ReadBlock(Block* block, unsigned long long blockId)
+{
+	block->Clear();
+	GetFile()->GetBlock(blockId, block);
+	block->MoveToStart();
+	m_LastQueryBlockReadAccessCount++;
 }
 
 bool BaseRecordManager::TryGetNextValidRecord(Record* record)
@@ -286,8 +318,10 @@ bool BaseRecordManager::TryGetNextValidRecord(Record* record)
 	// through the file
 	if (m_WriteBlock->GetRecordsCount() > 0)
 	{
+		bool read = false;
 		while (m_WriteBlock->GetPosition() < m_WriteBlock->GetRecordsCount())
 		{
+			read = true;
 			if (m_WriteBlock->GetRecord(recordData))
 			{
 				// Here we dont have to check for the id == -1
@@ -295,6 +329,10 @@ bool BaseRecordManager::TryGetNextValidRecord(Record* record)
 				// Just remove from the list
 				return true;
 			}
+		}
+		if (read)
+		{
+			m_LastQueryBlockReadAccessCount++;
 		}
 	}
 

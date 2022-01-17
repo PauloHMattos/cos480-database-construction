@@ -13,7 +13,8 @@ public:
 
 	unsigned long long GetSize();
 	Schema* GetSchema();
-	unsigned long long GetLastQueryAccessedBlocksCount();
+	unsigned long long GetLastQueryBlockReadAccessCount();
+	unsigned long long GetLastQueryBlockWriteAccessCount();
 
 
 	// ---------------------------------------------- <INSERT> --------------------------------------------------------------------------

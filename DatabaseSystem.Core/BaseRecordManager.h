@@ -14,7 +14,8 @@ public:
 	virtual void Close();
 	Schema* GetSchema();
 	unsigned long long GetSize();
-	unsigned long long GetLastQueryBlockAccessCount() const;
+	unsigned long long GetLastQueryBlockReadAccessCount() const;
+	unsigned long long GetLastQueryBlockWriteAccessCount() const;
 
 	// ---------------------------------------------- <INSERT> --------------------------------------------------------------------------
 	/*
@@ -82,19 +83,24 @@ protected:
 	Block* m_WriteBlock;
 	unsigned long long m_RecordsPerBlock;
 	unsigned long long m_NextReadBlockNumber;
-	unsigned long long m_LastQueryBlockAccessCount;
+	unsigned long long m_LastQueryBlockReadAccessCount;
+	unsigned long long m_LastQueryBlockWriteAccessCount;
 
 	virtual unsigned long long GetBlocksCount();
 	virtual void ReadNextBlock();
-	virtual void ReadBlock(unsigned long long blockId);
+	virtual void ReadBlock(Block* block, unsigned long long blockId);
+	virtual void WriteBlock(Block* block, unsigned long long blockId);
+	virtual void AddBlock(Block* block);
 	
 	bool TryGetNextValidRecord(Record* record);
 	void MoveToStart();
 	bool MoveNext(Record* record, unsigned long long& accessedBlocks);
 	bool MoveNext(Record* record, unsigned long long& accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock);
 	
+	void ClearAccessCount();
 	virtual FileHead* CreateNewFileHead(Schema* schema) = 0;
 	virtual FileWrapper<FileHead>* GetFile() = 0;
 	virtual void DeleteInternal(unsigned long long blockNumber, unsigned long long recordNumberInBlock) = 0;
+	virtual void Reorganize() = 0;
 };
 

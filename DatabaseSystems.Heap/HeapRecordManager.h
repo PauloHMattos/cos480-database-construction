@@ -13,7 +13,7 @@
 class HeapRecordManager : public BaseRecordManager
 {
 public:
-	HeapRecordManager(size_t blockSize, int reorderCount);
+	HeapRecordManager(size_t blockSize, float reorderCount);
 
 	// Inherited via BaseRecordManager
 	virtual void Insert(Record record) override;
@@ -23,13 +23,11 @@ protected:
 	virtual FileHead* CreateNewFileHead(Schema* schema) override;
 	virtual FileWrapper<FileHead>* GetFile() override;
 	virtual void DeleteInternal(unsigned long long blockNumber, unsigned long long recordNumberInBlock) override;
-	void Reorganize();
+	virtual void Reorganize() override;
 	
 private:
 	FileWrapper<HeapFileHead>* m_File;
-	int m_ReorganizeCount;
-
-	void WriteAndRead();
+	float m_MaxPercentEmptySpace;
 
 	struct HeapRecord {
 		unsigned long long Id;

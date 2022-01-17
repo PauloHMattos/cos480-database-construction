@@ -167,6 +167,9 @@
     <ProjectReference Include="..\DatabaseSystem.Hash\DatabaseSystem.Hash.vcxproj">
       <Project>{ac1f9108-5453-4640-a11f-f30202cd4912}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\DatabaseSystem.Ordered\DataBaseSystem.Ordered.vcxproj">
+      <Project>{d51cae0d-933c-40aa-a0c9-ffb18f43bc28}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\DatabaseSystems.Heap\DatabaseSystems.Heap.vcxproj">
       <Project>{a36e3d47-20e3-4422-801f-ed9748b68237}</Project>
     </ProjectReference>
@@ -175,6 +178,9 @@
     <ClInclude Include="FixedRecord.h" />
     <ClInclude Include="nameof.hpp" />
     <ClInclude Include="pch.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="cbd.csv" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

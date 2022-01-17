@@ -17,6 +17,8 @@ public:
 	void MoveToEnd();
 	void Retreat();
 	void Remove();
+	bool GetRecordBack(vector<unsigned char>* record);
+	bool MoveToAndGetRecord(unsigned int recordNumberInBlock, vector<unsigned char> *record);
 
 	unsigned int GetRecordsCount();
 	bool GetRecord(vector<unsigned char>* record);
