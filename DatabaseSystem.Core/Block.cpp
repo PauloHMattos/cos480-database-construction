@@ -144,6 +144,17 @@ bool Block::GetRecordSpan(unsigned long long recordNumberInBlock, span<unsigned 
 	return true;
 }
 
+bool Block::GetRecordBack(vector<unsigned char>* record)
+{
+	if (m_Records.LeftLength())
+	{
+		memcpy(record->data(), m_Records.Current(0)->data(), record->size());
+		m_Records.Retreat();
+		return true;
+	}
+	return false;
+}
+
 bool Block::GetCurrentSpan(span<unsigned char>* record)
 {
 	if (GetRecordsCount() == 0)
@@ -274,4 +285,19 @@ void Block::UpdateRecordsCount(unsigned int newCount)
 unsigned int Block::GetRecordsCountVar()
 {
 	return m_RecordsCount;
+}
+
+bool Block::MoveToAndGetRecord(unsigned int recordNumberInBlock, vector<unsigned char>* record)
+{
+	MoveToStart();
+	auto size = m_Records.LeftLength() + m_Records.RightLength();
+	if (recordNumberInBlock <= GetRecordsCount())
+	{
+		for (int i = 0; i < recordNumberInBlock; i++) {
+			m_Records.Advance();
+		}
+		memcpy(record->data(), m_Records.Current(0)->data(), record->size());
+		return true;
+	}
+	return false;
 }

@@ -47,7 +47,7 @@ unsigned int Record::GetFixedSize() const
 	return m_Schema->GetRecordHeadSize();
 }
 
-vector<Record> Record::LoadFromCsv(Schema& schema, string path) {
+vector<Record> Record::LoadFromCsv(Schema& schema, string path, unsigned long long lines) {
 	auto result = vector<Record>();
 
 	ifstream infile(path);
@@ -56,8 +56,10 @@ vector<Record> Record::LoadFromCsv(Schema& schema, string path) {
 	
 	// Skip first line
 	getline(infile, line);
-	while (getline(infile, line))
+	auto linesRead = 0ull;
+	while (getline(infile, line) && (lines < 0 || linesRead < lines))
 	{
+		linesRead++;
 		auto record = Record(&schema);
 		auto lineStream = istringstream(line);
 
@@ -98,6 +100,7 @@ vector<Record> Record::LoadFromCsv(Schema& schema, string path) {
 		}
 
 		result.push_back(record);
+		cnt++;
 	}
 	return result;
 }

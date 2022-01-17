@@ -2,16 +2,20 @@
 
 #include "Schema.h"
 #include "Record.h"
+#include "File.h"
+#include "FileHead.h"
 
 class BaseRecordManager
 {
 public:
-	virtual void Create(string path, Schema* schema) = 0;
-	virtual void Open(string path) = 0;
-	virtual void Close() = 0;
-	virtual Schema* GetSchema() = 0;
-	virtual unsigned long long GetSize() = 0;
-	unsigned long long GetLastQueryBlockAccessCount() const;
+	BaseRecordManager();
+	virtual void Create(string path, Schema* schema);
+	virtual void Open(string path);
+	virtual void Close();
+	Schema* GetSchema();
+	unsigned long long GetSize();
+	unsigned long long GetLastQueryBlockReadAccessCount() const;
+	unsigned long long GetLastQueryBlockWriteAccessCount() const;
 	virtual vector<Record*> SelectBlock(unsigned long long blockId);
 	// ---------------------------------------------- <INSERT> --------------------------------------------------------------------------
 	/*
@@ -70,11 +74,33 @@ public:
 	// ---------------------------------------------- </DELETE> --------------------------------------------------------------------------
 
 protected:
-	unsigned long long m_LastQueryBlockAccessCount;
-	bool MoveNext(Record* record, unsigned long long& accessedBlocks);
+	struct BaseRecord
+	{
+		unsigned long long Id;
+	};
 
-	virtual void MoveToStart() = 0;
-	virtual bool MoveNext(Record* record, unsigned long long& accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock) = 0;
+	Block* m_ReadBlock;
+	Block* m_WriteBlock;
+	unsigned long long m_RecordsPerBlock;
+	unsigned long long m_NextReadBlockNumber;
+	unsigned long long m_LastQueryBlockReadAccessCount;
+	unsigned long long m_LastQueryBlockWriteAccessCount;
+
+	virtual unsigned long long GetBlocksCount();
+	virtual void ReadNextBlock();
+	virtual void ReadBlock(Block* block, unsigned long long blockId);
+	virtual void WriteBlock(Block* block, unsigned long long blockId);
+	virtual void AddBlock(Block* block);
+	
+	bool TryGetNextValidRecord(Record* record);
+	void MoveToStart();
+	bool MoveNext(Record* record, unsigned long long& accessedBlocks);
+	bool MoveNext(Record* record, unsigned long long& accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock);
+	
+	void ClearAccessCount();
+	virtual FileHead* CreateNewFileHead(Schema* schema) = 0;
+	virtual FileWrapper<FileHead>* GetFile() = 0;
 	virtual void DeleteInternal(unsigned long long blockNumber, unsigned long long recordNumberInBlock) = 0;
+	virtual void Reorganize() = 0;
 };
 

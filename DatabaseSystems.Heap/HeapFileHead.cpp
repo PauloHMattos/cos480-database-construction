@@ -1,11 +1,10 @@
 #include "pch.h"
 #include "HeapFileHead.h"
 
-HeapFileHead::HeapFileHead() : HeapFileHead(nullptr)
-{
-}
-
-HeapFileHead::HeapFileHead(Schema* schema) : NextId(0), RemovedRecordHead(RecordPointer())
+HeapFileHead::HeapFileHead(Schema* schema) : 
+    RemovedRecordHead(RecordPointer()),
+    RemovedRecordTail(RecordPointer()),
+    RemovedCount(0)
 {
     m_Schema = schema;
 }
@@ -17,7 +16,6 @@ HeapFileHead::~HeapFileHead()
 void HeapFileHead::Serialize(iostream& dst)
 {
     FileHead::Serialize(dst);
-    dst << NextId << endl;
     dst << RemovedCount << endl;
     dst << RemovedRecordHead.BlockId << endl;
     dst << RemovedRecordHead.RecordNumberInBlock << endl;
@@ -28,7 +26,6 @@ void HeapFileHead::Serialize(iostream& dst)
 void HeapFileHead::Deserialize(iostream& src)
 {
     FileHead::Deserialize(src);
-    src >> NextId;
     src >> RemovedCount;
     src >> RemovedRecordHead.BlockId;
     src >> RemovedRecordHead.RecordNumberInBlock;
