@@ -16,7 +16,7 @@ public:
 	unsigned long long GetSize();
 	unsigned long long GetLastQueryBlockReadAccessCount() const;
 	unsigned long long GetLastQueryBlockWriteAccessCount() const;
-	virtual vector<Record*> SelectBlock(unsigned long long blockId);
+
 	// ---------------------------------------------- <INSERT> --------------------------------------------------------------------------
 	/*
 	* Inserção de um único registro.

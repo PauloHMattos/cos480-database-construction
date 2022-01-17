@@ -25,20 +25,7 @@ public:
 	void Write(ostream& out);
 	static vector<Record> LoadFromCsv(Schema& schema, string path, unsigned long long lines);
 
-	//Var length
-	unsigned int GetDataSize();
-	unsigned int GetHeadSize();
-	unsigned int GetFixedSize() const;
-
-	void ResizeData(unsigned int newSize);
-
-	struct VarColumnMap {
-		unsigned int m_Start;
-		unsigned int m_Length;
-	};
-
 private:
 	Schema* m_Schema;
 	vector<unsigned char> m_Data;
-	vector<unsigned char> m_VarData;
 };

@@ -159,7 +159,6 @@
   <ItemGroup>
     <ClCompile Include="Benchmarks.cpp" />
     <ClCompile Include="FixedRecord.cpp" />
-    <ClCompile Include="VarRecord.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DatabaseSystem.Core\DatabaseSystem.Core.vcxproj">
@@ -167,9 +166,6 @@
     </ProjectReference>
     <ProjectReference Include="..\DatabaseSystem.Hash\DatabaseSystem.Hash.vcxproj">
       <Project>{ac1f9108-5453-4640-a11f-f30202cd4912}</Project>
-    </ProjectReference>
-    <ProjectReference Include="..\DatabaseSystems.HeapVar\DatabaseSystems.HeapVar.vcxproj">
-      <Project>{8df6302f-b592-4a7d-9ec7-be7c2d200b03}</Project>
     </ProjectReference>
     <ProjectReference Include="..\DatabaseSystem.Ordered\DataBaseSystem.Ordered.vcxproj">
       <Project>{d51cae0d-933c-40aa-a0c9-ffb18f43bc28}</Project>
@@ -182,7 +178,6 @@
     <ClInclude Include="FixedRecord.h" />
     <ClInclude Include="nameof.hpp" />
     <ClInclude Include="pch.h" />
-    <ClInclude Include="VarRecord.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cbd.csv" />

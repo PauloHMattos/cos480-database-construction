@@ -15,7 +15,6 @@ public:
 	Schema* GetSchema();
 	unsigned long long GetLastQueryBlockReadAccessCount();
 	unsigned long long GetLastQueryBlockWriteAccessCount();
-	vector<Record*> SelectBlockRecords(unsigned long long blockId);
 
 
 	// ---------------------------------------------- <INSERT> --------------------------------------------------------------------------

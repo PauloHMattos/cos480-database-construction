@@ -3,11 +3,7 @@
 
 Block::Block(unsigned int blockSize, unsigned int recordSize, unsigned int headerSize) : m_RecordSize(recordSize), m_HeaderSize(headerSize)
 {
-	// RecordsCount, FinishRecordMap and StartRecords
-	m_MetaDataCount = 3;
-	m_CurrentLengthInBytes = m_MetaDataCount * sizeof(unsigned int);
-	m_FinishRecordMap = m_CurrentLengthInBytes;
-	m_StartRecords = blockSize - 1;
+	m_CurrentLengthInBytes = sizeof(unsigned int) + headerSize;
 	m_BlockData.resize(blockSize);
 }
 
@@ -17,23 +13,13 @@ void Block::Load(span<unsigned char> data)
 	memcpy(&m_BlockData[0], &data[0], data.size());
 
 	auto recordsCount = ((unsigned int*)data.data())[0];
-	auto finishMap = ((unsigned int*)data.data())[1];
-	auto startRecords = ((unsigned int*)data.data())[2];
-	
-	auto headSize = m_MetaDataCount * sizeof(unsigned int);
-	m_RecordsCount = recordsCount;
-	m_FinishRecordMap = finishMap;
-	m_StartRecords = startRecords;
+	data = span(m_BlockData).subspan(sizeof(recordsCount) + m_HeaderSize);
 
-	data = span(m_BlockData);
-
-	auto recordsMap = data.subspan(m_CurrentLengthInBytes, finishMap - m_CurrentLengthInBytes);
-	for (int i = 0; i < recordsMap.size(); i += sizeof(struct BlockRecordMap))
+	for (int i = 0; i < recordsCount; i++)
 	{
-		auto blockRecordMap = (BlockRecordMap*)recordsMap.subspan(i, sizeof(struct BlockRecordMap)).data();
-		auto recordData = new span<unsigned char>(data.subspan(blockRecordMap->RecordStart, blockRecordMap->RecordLength));
+		auto recordData = new span<unsigned char>(data.subspan(i * m_RecordSize, m_RecordSize));
 		m_Records.Insert(recordData);
-		m_CurrentLengthInBytes += blockRecordMap->RecordLength;
+		m_CurrentLengthInBytes += m_RecordSize;
 		m_Records.Advance();
 	}
 }
@@ -42,8 +28,6 @@ void Block::Flush(span<unsigned char> data)
 {
 	auto recordsCount = GetRecordsCount();
 	((unsigned int*)m_BlockData.data())[0] = recordsCount;
-	((unsigned int*)m_BlockData.data())[1] = m_FinishRecordMap;
-	((unsigned int*)m_BlockData.data())[2] = m_StartRecords;
 	memcpy(data.data(), m_BlockData.data(), m_BlockData.size());
 }
 
@@ -54,29 +38,19 @@ void Block::Clear()
 	{
 		m_Records.Remove();
 	}
-	m_CurrentLengthInBytes = sizeof(unsigned int);
+	m_CurrentLengthInBytes = sizeof(unsigned int) + m_HeaderSize;
 	memset(m_BlockData.data(), 0, m_BlockData.size());
 }
 
 void Block::Append(span<unsigned char> data)
 {
-	auto newStartRecords = m_StartRecords - data.size();
-	memcpy(&m_BlockData[newStartRecords], &data[0], data.size());
+	memcpy(&m_BlockData[m_CurrentLengthInBytes], &data[0], data.size());
 
-	auto recordData = new span<unsigned char>(&m_BlockData[m_CurrentLengthInBytes], data.size());
-
-	// Register record
-	BlockRecordMap recordMap;
-	recordMap.RecordStart = m_StartRecords - data.size();
-	recordMap.RecordLength = data.size();
-	memcpy(&m_BlockData[m_FinishRecordMap], &recordMap, sizeof(struct BlockRecordMap));
-
-	m_FinishRecordMap += sizeof(struct BlockRecordMap);
-	m_StartRecords = newStartRecords;
+	auto recordData = new span<unsigned char>(&m_BlockData[m_CurrentLengthInBytes], m_RecordSize);
 
 	m_Records.MoveToFinish();
 	m_Records.Insert(recordData);
-	m_CurrentLengthInBytes += data.size();
+	m_CurrentLengthInBytes += m_RecordSize;
 }
 
 void Block::MoveToStart()
@@ -107,14 +81,6 @@ void Block::Remove()
 unsigned int Block::GetRecordsCount()
 {
 	return (unsigned int)(m_Records.LeftLength() + m_Records.RightLength());
-}
-
-unsigned int Block::GetCurrRecordSize()
-{
-	if (m_Records.RightLength() > 0) {
-		return m_Records.Current(0)->size();
-	}
-	return 0;
 }
 
 bool Block::GetRecord(vector<unsigned char>* record)
@@ -198,95 +164,6 @@ bool Block::RemoveRecordAt(unsigned long long recordNumber)
 		m_Records.Remove();
 	}
 	return true;
-}
-
-size_t Block::GetCurrentLengthInBytes()
-{
-	return m_CurrentLengthInBytes;
-}
-
-unsigned int Block::GetBlockSize() const
-{
-	return m_BlockData.size();
-}
-
-unsigned int Block::GetFinishRecordMap() const
-{
-	return m_FinishRecordMap;
-}
-
-unsigned int Block::GetStartRecords() const
-{
-	return m_StartRecords;
-}
-
-void Block::UpdateRecordMapPos(unsigned int recordNumber, unsigned int bytesShifted)
-{
-	auto offSetToUpdate = m_MetaDataCount + (2 * recordNumber);
-	((unsigned int*)m_BlockData.data())[offSetToUpdate] += bytesShifted;
-}
-
-void Block::ShiftBytes(vector<unsigned char> &buffer, unsigned int currPos, unsigned int length, unsigned int bytesShifted, bool isLeftDir)
-{
-	memcpy(buffer.data(), &m_BlockData.data()[currPos], length);
-	memcpy(&m_BlockData.data()[currPos + ((isLeftDir ? -1 : 1) * bytesShifted)], &buffer.data()[0], length);
-}
-
-void Block::RemoveRecordMap(vector<unsigned char>& buffer, unsigned int recordNumber)
-{
-	auto currPos = (m_MetaDataCount * sizeof(unsigned int)) + ((recordNumber + 1) * sizeof(struct BlockRecordMap));
-	auto length = m_FinishRecordMap - currPos;
-	auto bytesShifted = sizeof(struct BlockRecordMap);
-	ShiftBytes(buffer, currPos, length, bytesShifted, 1);
-	m_FinishRecordMap -= sizeof(struct BlockRecordMap);
-}
-
-unsigned int Block::GetDataRecordsCount()
-{
-	return (unsigned int)m_BlockData[0];
-}
-
-long long Block::GetVarRecordId(unsigned int recordNumber)
-{
-	auto currPos = ((unsigned int*)m_BlockData.data())[m_MetaDataCount + (2 * (recordNumber - 1))];
-	auto id = ((long long *)span(&m_BlockData.data()[currPos], sizeof(unsigned long long)).data())[0];
-	return id;
-}
-
-unsigned int Block::GetRecordPos(unsigned int recordNumber)
-{
-	return ((unsigned int*)m_BlockData.data())[m_MetaDataCount + (2 * (recordNumber - 1))];
-}
-
-unsigned int Block::GetRecordLength(unsigned int recordNumber)
-{
-	return ((unsigned int*)m_BlockData.data())[m_MetaDataCount + (2 * (recordNumber - 1)) + 1];
-}
-
-void Block::UpdateStartRecordPos(unsigned int newPos)
-{
-	m_StartRecords = newPos;
-}
-
-void Block::PrintRecordMapper()
-{
-	auto data = span(m_BlockData);
-	auto recordsMap = data.subspan(12, m_RecordsCount * sizeof(struct BlockRecordMap));
-	for (int i = 0; i < recordsMap.size(); i += sizeof(struct BlockRecordMap))
-	{
-		auto blockRecordMap = (BlockRecordMap*)recordsMap.subspan(i, sizeof(struct BlockRecordMap)).data();
-		printf("Block id: %d. Start: %d. Length: %d.\n", i / sizeof(struct BlockRecordMap), blockRecordMap->RecordStart, blockRecordMap->RecordLength);
-	}
-}
-
-void Block::UpdateRecordsCount(unsigned int newCount)
-{
-	m_RecordsCount = newCount;
-}
-
-unsigned int Block::GetRecordsCountVar()
-{
-	return m_RecordsCount;
 }
 
 bool Block::MoveToAndGetRecord(unsigned int recordNumberInBlock, vector<unsigned char>* record)
