@@ -37,27 +37,21 @@ void OrderedRecordManager::Close()
 {
     if (m_ExtensionFile->GetHead()->GetBlocksCount() > 0) 
     {
-        Reorder();
+        Reorganize();
     }
     m_File->Close();
     m_ExtensionFile->Close();
 }
 
-Schema *OrderedRecordManager::GetSchema()
-{
-    return m_File->GetHead()->GetSchema();
-}
 
-unsigned long long OrderedRecordManager::GetSize()
+unsigned long long OrderedRecordManager::GetBlocksCount()
 {
-    auto writtenBlocks = m_File->GetBlockSize() * m_File->GetHead()->GetBlocksCount();
-    auto extensionBlocks = m_ExtensionFile->GetBlockSize() * m_ExtensionFile->GetHead()->GetBlocksCount();
-    auto recordsWritten = m_WriteBlock->GetRecordsCount() * GetSchema()->GetSize();
-    return writtenBlocks + extensionBlocks + recordsWritten;
+    return m_File->GetHead()->GetBlocksCount() + m_ExtensionFile->GetHead()->GetBlocksCount();
 }
 
 void OrderedRecordManager::Insert(Record record)
 {
+    ClearAccessCount();
     auto orderedRecord = record.As<OrderedRecord>();
     orderedRecord->Id = m_ExtensionFile->GetHead()->NextId;
     m_ExtensionFile->GetHead()
@@ -66,14 +60,14 @@ void OrderedRecordManager::Insert(Record record)
     auto recordsCount = m_WriteBlock->GetRecordsCount();
     if (recordsCount == m_RecordsPerBlock)
     {
-        m_ExtensionFile->AddBlock(m_WriteBlock);
+        AddToExtension(m_WriteBlock);
         m_WriteBlock->Clear();
 
         auto blocksCount = m_ExtensionFile->GetHead()->GetBlocksCount();
         if (blocksCount == m_MaxExtensionFileSize)
         {
             // if Extension File has reached max size, call Reorder
-            Reorder();
+            Reorganize();
         }
     }
 
@@ -86,7 +80,7 @@ Record *OrderedRecordManager::Select(unsigned long long id)
     // if the file is ordered by the id
     if (m_OrderedByColumnId == 0) {
         
-        m_LastQueryBlockAccessCount = 0;
+        ClearAccessCount();
         unsigned long long accessedBlocks = 0;
 
         unsigned long long blockId;
@@ -100,7 +94,6 @@ Record *OrderedRecordManager::Select(unsigned long long id)
             return false;
         };
         auto currentRecord = BinarySearch(span<unsigned char>((unsigned char *)&id, sizeof(id)), evalFunc, accessedBlocks);
-        m_LastQueryBlockAccessCount += accessedBlocks;
 
         if (currentRecord != nullptr)
             return currentRecord;
@@ -111,7 +104,6 @@ Record *OrderedRecordManager::Select(unsigned long long id)
         MoveToExtension();
         while (MoveNext(currentRecord, accessedBlocks, blockId, recordNumberInBlock))
         {
-            m_LastQueryBlockAccessCount += accessedBlocks;
             if (currentRecord->getId() == id) {
                 return currentRecord;
             }
@@ -127,8 +119,7 @@ vector<Record *> OrderedRecordManager::SelectWhereBetween(unsigned int columnId,
 {
     // if the file is ordered by the column we are selecting
     if (columnId == m_OrderedByColumnId) {
-
-        m_LastQueryBlockAccessCount = 0;
+        ClearAccessCount();
         unsigned long long accessedBlocks = 0;
 
         auto records = vector<Record*>();
@@ -152,7 +143,6 @@ vector<Record *> OrderedRecordManager::SelectWhereBetween(unsigned int columnId,
             // MovePrev until finding first
             while (MovePrev(currentRecord, accessedBlocks, blockId, recordNumberInBlock))
             {
-                m_LastQueryBlockAccessCount += accessedBlocks;
                 auto value = schema->GetValue(currentRecord->GetData(), columnId);
 
                 if (Column::Compare(column, value, min) < 0)
@@ -165,7 +155,6 @@ vector<Record *> OrderedRecordManager::SelectWhereBetween(unsigned int columnId,
             // MoveNext while record is smaller than max
             while (MoveNext(currentRecord, accessedBlocks, blockId, recordNumberInBlock))
             {
-                m_LastQueryBlockAccessCount += accessedBlocks;
                 auto value = schema->GetValue(currentRecord->GetData(), columnId);
 
                 if (Column::Compare(column, value, max) > 0) {
@@ -198,7 +187,6 @@ vector<Record *> OrderedRecordManager::SelectWhereBetween(unsigned int columnId,
         // linear search extension file continuing from that point
         while (MoveNext(currentRecord, accessedBlocks, blockId, recordNumberInBlock))
         {
-            m_LastQueryBlockAccessCount += accessedBlocks;
             auto value = schema->GetValue(currentRecord->GetData(), columnId);
 
             if (Column::Compare(column, value, min) >= 0 && Column::Compare(column, value, max) <= 0)
@@ -220,7 +208,7 @@ vector<Record *> OrderedRecordManager::SelectWhereEquals(unsigned int columnId, 
     // if the file is ordered by the column we are selecting
     if (columnId == m_OrderedByColumnId) {
 
-        m_LastQueryBlockAccessCount = 0;
+        ClearAccessCount();
         unsigned long long accessedBlocks = 0;
 
         unsigned long long blockId;
@@ -244,7 +232,6 @@ vector<Record *> OrderedRecordManager::SelectWhereEquals(unsigned int columnId, 
             // MovePrev until finding first
             while (MovePrev(currentRecord, accessedBlocks, blockId, recordNumberInBlock))
             {
-                m_LastQueryBlockAccessCount += accessedBlocks;
                 auto value = schema->GetValue(currentRecord->GetData(), columnId);
 
                 if (!Column::Equals(column, value, data))
@@ -258,7 +245,6 @@ vector<Record *> OrderedRecordManager::SelectWhereEquals(unsigned int columnId, 
             auto enteredRange = false;
             while (MoveNext(currentRecord, accessedBlocks, blockId, recordNumberInBlock))
             {
-                m_LastQueryBlockAccessCount += accessedBlocks;
                 auto value = schema->GetValue(currentRecord->GetData(), columnId);
 
                 // the value of records found here should all be equal to data
@@ -295,7 +281,6 @@ vector<Record *> OrderedRecordManager::SelectWhereEquals(unsigned int columnId, 
         // linear search extension file continuing from that point
         while (MoveNext(currentRecord, accessedBlocks, blockId, recordNumberInBlock))
         {
-            m_LastQueryBlockAccessCount += accessedBlocks;
             auto value = schema->GetValue(currentRecord->GetData(), columnId);
 
             if (Column::Equals(column, value, data))
@@ -344,7 +329,7 @@ int OrderedRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned
     // if the file is ordered by the column we are selecting
     if (columnId == m_OrderedByColumnId) {
 
-        m_LastQueryBlockAccessCount = 0;
+        ClearAccessCount();
         unsigned long long accessedBlocks = 0;
 
         unsigned long long blockId;
@@ -367,7 +352,6 @@ int OrderedRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned
             // MovePrev until finding first
             while (MovePrev(currentRecord, accessedBlocks, blockId, recordNumberInBlock))
             {
-                m_LastQueryBlockAccessCount += accessedBlocks;
                 auto value = schema->GetValue(currentRecord->GetData(), columnId);
 
                 if (!Column::Equals(column, value, data))
@@ -381,7 +365,6 @@ int OrderedRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned
             auto enteredRange = false;
             while (MoveNext(currentRecord, accessedBlocks, blockId, recordNumberInBlock))
             {
-                m_LastQueryBlockAccessCount += accessedBlocks;
                 auto value = schema->GetValue(currentRecord->GetData(), columnId);
 
                 // the value of records found here should all be equal to data
@@ -416,7 +399,6 @@ int OrderedRecordManager::DeleteWhereEquals(unsigned int columnId, span<unsigned
         // linear search extension file continuing from that point
         while (MoveNext(currentRecord, accessedBlocks, blockId, recordNumberInBlock))
         {
-            m_LastQueryBlockAccessCount += accessedBlocks;
             auto value = schema->GetValue(currentRecord->GetData(), columnId);
 
             if (Column::Equals(column, value, data))
@@ -475,7 +457,7 @@ void OrderedRecordManager::DeleteInternal(unsigned long long blockNumber, unsign
 
     m_DeletedRecords++;
 
-    ReadBlock(blockNumber);
+    ReadBlock(m_ReadBlock, blockNumber);
     span<unsigned char> recordToRemove;
     if (!m_ReadBlock->GetRecordSpan(recordNumberInBlock, &recordToRemove))
     {
@@ -486,7 +468,7 @@ void OrderedRecordManager::DeleteInternal(unsigned long long blockNumber, unsign
     // Mark as removed
     auto orderedRecord = Record::Cast<OrderedRecord>(&recordToRemove);
     orderedRecord->Id = -1;
-    m_File->WriteBlock(m_ReadBlock, blockNumber);
+    WriteBlock(m_ReadBlock, blockNumber);
 }
 
 bool OrderedRecordManager::GetNextRecordInFile(Record* record)
@@ -568,9 +550,33 @@ void OrderedRecordManager::MoveToExtension()
     ReadNextBlock();
 }
 
+void OrderedRecordManager::AddToExtension(Block* block)
+{
+    m_ExtensionFile->AddBlock(block);
+}
+
+void OrderedRecordManager::WriteToExtension(Block* block, unsigned long long blockNumber)
+{
+    m_ExtensionFile->WriteBlock(block, blockNumber);
+}
+
+void OrderedRecordManager::GetBlockFromExtension(Block* block, unsigned long long blockNumber)
+{
+    block->Clear();
+    m_ExtensionFile->GetBlock(blockNumber, block);
+    block->MoveToStart();
+}
+
+void OrderedRecordManager::GetBlockFromMainFile(Block* block, unsigned long long blockNumber)
+{
+    block->Clear();
+    m_File->GetBlock(blockNumber, block);
+    block->MoveToStart();
+}
+
 void OrderedRecordManager::ReadPrevBlock()
 {
-    ReadBlock(m_NextReadBlockNumber);
+    ReadBlock(m_ReadBlock, m_NextReadBlockNumber);
     m_ReadBlock->MoveToEnd();
     m_NextReadBlockNumber--;
 }
@@ -587,18 +593,18 @@ FileWrapper<FileHead>* OrderedRecordManager::GetFile()
     return (FileWrapper<FileHead>*)m_File;
 }
 
-void OrderedRecordManager::ReadBlock(unsigned long long blockId)
+void OrderedRecordManager::ReadBlock(Block* block, unsigned long long blockId)
 {
-    m_ReadBlock->Clear();
+    block->Clear();
     auto mainFileBlockCount = m_File->GetHead()->GetBlocksCount();
     if (blockId < mainFileBlockCount) {
-        m_File->GetBlock(blockId, m_ReadBlock);
+        GetBlockFromMainFile(block, blockId);
     }
     else {
         auto correctedBlockId = m_NextReadBlockNumber - mainFileBlockCount;
-        m_ExtensionFile->GetBlock(correctedBlockId, m_ReadBlock);
+        GetBlockFromExtension(block, correctedBlockId);
     }
-    m_ReadBlock->MoveToStart();
+    block->MoveToStart();
 }
 
 bool GetRecord(Block *block, Record *record)
@@ -636,7 +642,7 @@ function<bool(Record, Record)> MakeComparer(Schema* schema, unsigned int columnI
     };
 }
 
-void OrderedRecordManager::Reorder()
+void OrderedRecordManager::Reorganize()
 {
     if (DEBUG) 
     {
@@ -659,9 +665,7 @@ void OrderedRecordManager::Reorder()
     for (blockId = 0; blockId < blocksCount; blockId++)
     {
         auto blockRecords = vector<Record>();
-        m_ReadBlock->Clear();
-        m_ExtensionFile->GetBlock(blockId, m_ReadBlock);
-        m_ReadBlock->MoveToStart();
+        GetBlockFromExtension(m_ReadBlock, blockId);
         while (GetRecord(m_ReadBlock, &record))
         {
             blockRecords.push_back(record);
@@ -676,7 +680,7 @@ void OrderedRecordManager::Reorder()
             auto recordData = record.GetData();
             m_WriteBlock->Append(*recordData);
         }
-        m_File->AddBlock(m_WriteBlock);
+        AddBlock(m_WriteBlock);
     }
     m_ExtensionFile->SeekHead();
 
@@ -718,9 +722,7 @@ void OrderedRecordManager::MemoryReorder()
     unsigned long long blockId;
     for (blockId = 0; blockId < blocksCount; blockId++)
     {
-        m_ReadBlock->Clear();
-        m_File->GetBlock(blockId, m_ReadBlock);
-        m_ReadBlock->MoveToStart();
+        ReadBlock(m_ReadBlock, blockId);
         while (GetRecord(m_ReadBlock, &record))
         {
             records.push_back(record);
@@ -731,9 +733,7 @@ void OrderedRecordManager::MemoryReorder()
     // Read all records from m_ExtensionFile
     for (blockId = 0; blockId < blocksCount; blockId++)
     {
-        m_ReadBlock->Clear();
-        m_ExtensionFile->GetBlock(blockId, m_ReadBlock);
-        m_ReadBlock->MoveToStart();
+        GetBlockFromExtension(m_ReadBlock, blockId);
         while (GetRecord(m_ReadBlock, &record))
         {
             records.push_back(record);
@@ -754,7 +754,7 @@ void OrderedRecordManager::MemoryReorder()
 
         auto recordsCount = m_WriteBlock->GetRecordsCount();
         if (recordsCount == m_RecordsPerBlock) {
-            m_File->AddBlock(m_WriteBlock);
+            AddBlock(m_WriteBlock);
             m_WriteBlock->Clear();
         }
     }
@@ -762,7 +762,7 @@ void OrderedRecordManager::MemoryReorder()
 
 void OrderedRecordManager::Compress()
 {
-    Reorder(); // records with id -1 will be pushed to the end
+    Reorganize(); // records with id -1 will be pushed to the end
 }
 
 Record* OrderedRecordManager::BinarySearch(span<unsigned char> target, EvalFunctionType evalFunc, unsigned long long& accessedBlocks)
@@ -781,7 +781,7 @@ Record* OrderedRecordManager::BinarySearch(span<unsigned char> target, EvalFunct
         m_NextReadBlockNumber = pivot / m_RecordsPerBlock;
         auto recordOffset = pivot % m_RecordsPerBlock;
 
-        ReadBlock(m_NextReadBlockNumber);
+        ReadBlock(m_ReadBlock, m_NextReadBlockNumber);
         accessedBlocks++;
         GetRecord(m_ReadBlock, currentRecord, recordOffset);
         auto value = schema->GetValue(currentRecord->GetData(), m_OrderedByColumnId);
@@ -926,16 +926,14 @@ Partition OrderedRecordManager::Merge(Partition p1, Partition p2)
         auto blockPointer1 = recordPointer1 / m_RecordsPerBlock;
         auto recordOffset1 = recordPointer1 % m_RecordsPerBlock;
 
-        readBlock1->Clear();
-        m_File->GetBlock(blockPointer1, readBlock1);
+        GetBlockFromMainFile(readBlock1, blockPointer1);
         GetRecord(readBlock1, &record1, recordOffset1);
 
 
         auto blockPointer2 = recordPointer2 / m_RecordsPerBlock;
         auto recordOffset2 = recordPointer2 % m_RecordsPerBlock;
 
-        readBlock2->Clear();
-        m_File->GetBlock(blockPointer2, readBlock2);
+        GetBlockFromMainFile(readBlock2, blockPointer2);
         GetRecord(readBlock2, &record2, recordOffset2);
 
         if (comparer(record1, record2)) // record 1 should come before record 2
@@ -955,7 +953,7 @@ Partition OrderedRecordManager::Merge(Partition p1, Partition p2)
         if (recordsInWriteBlock == m_RecordsPerBlock)
         {
             // write block to m_File at writeBlockPointer
-            m_File->WriteBlock(m_WriteBlock, writeBlockPointer);
+            WriteBlock(m_WriteBlock, writeBlockPointer);
             m_WriteBlock->Clear();
             writeBlockPointer++;
         }
@@ -969,8 +967,7 @@ Partition OrderedRecordManager::Merge(Partition p1, Partition p2)
         auto blockPointer = remainingRecordPointer / m_RecordsPerBlock;
         auto recordOffset = remainingRecordPointer % m_RecordsPerBlock;
 
-        readBlock1->Clear();
-        m_File->GetBlock(blockPointer, readBlock1);
+        GetBlockFromMainFile(readBlock1, blockPointer);
         GetRecord(readBlock1, &record1, recordOffset);
 
         auto recordData = record1.GetData();
@@ -981,7 +978,7 @@ Partition OrderedRecordManager::Merge(Partition p1, Partition p2)
         if (recordsInWriteBlock == m_RecordsPerBlock)
         {
             // write block to m_File at writeBlockPointer
-            m_File->WriteBlock(m_WriteBlock, writeBlockPointer);
+            WriteBlock(m_WriteBlock, writeBlockPointer);
             m_WriteBlock->Clear();
             writeBlockPointer++;
         }

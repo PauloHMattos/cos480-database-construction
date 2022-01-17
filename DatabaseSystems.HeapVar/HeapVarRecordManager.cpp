@@ -43,18 +43,6 @@ void HeapVarRecordManager::Close()
 	m_File->Close();
 }
 
-Schema* HeapVarRecordManager::GetSchema()
-{
-	return m_File->GetHead()->GetSchema();
-}
-
-unsigned long long HeapVarRecordManager::GetSize()
-{
-	auto writtenBlocks = m_File->GetBlockSize() * m_File->GetHead()->GetBlocksCount();
-	auto recordsToBeWritten = m_WriteBlock->GetRecordsCount() * GetSchema()->GetSize();
-	return writtenBlocks + recordsToBeWritten;
-}
-
 void HeapVarRecordManager::Insert(Record record)
 {
 	auto fileHead = m_File->GetHead();
@@ -101,35 +89,6 @@ write_block:
 
 	auto recordData = record.GetData();
 	m_WriteBlock->Append(*recordData);
-}
-
-void HeapVarRecordManager::MoveToStart()
-{
-	m_NextReadBlockNumber = 0;
-}
-
-bool HeapVarRecordManager::MoveNext(Record* record, unsigned long long& accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock)
-{
-	auto blocksCount = m_File->GetHead()->GetBlocksCount();
-	auto initialBlock = m_NextReadBlockNumber;
-	if (m_NextReadBlockNumber == 0)
-	{
-		//did not start to read before
-		if (blocksCount > 0)
-		{
-			ReadNextBlock();
-		}
-	}
-
-	bool returnVal = GetNextRecordInFile(record);
-
-	if (returnVal)
-	{
-		recordNumberInBlock = m_ReadBlock->GetPosition() - 1;
-		blockId = m_NextReadBlockNumber - 1;
-	}
-	accessedBlocks = m_NextReadBlockNumber - initialBlock;
-	return returnVal;
 }
 
 void HeapVarRecordManager::DeleteInternal(unsigned long long blockNumber, unsigned long long recordNumberInBlock)
@@ -305,4 +264,15 @@ void HeapVarRecordManager::UpdateRecordRangePos(unsigned int maxRecord, unsigned
 	for (int recordNumber = maxRecord - 1; recordNumber < m_ReadBlock->GetRecordsCount(); recordNumber++) {
 		m_ReadBlock->UpdateRecordMapPos(recordNumber, bytesShifted);
 	}
+}
+
+FileHead* HeapVarRecordManager::CreateNewFileHead(Schema* schema)
+{
+	auto fileHead = new HeapVarFileHead(schema);
+	return fileHead;
+}
+
+FileWrapper<FileHead>* HeapVarRecordManager::GetFile()
+{
+	return (FileWrapper<FileHead>*)m_File;
 }

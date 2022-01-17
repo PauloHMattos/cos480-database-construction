@@ -19,8 +19,6 @@ public:
 	virtual void Close() override;
 
 	// Inherited via BaseRecordManager
-	virtual Schema* GetSchema() override;
-	virtual unsigned long long GetSize() override;
 	virtual void Insert(Record record) override;
 
 	void UpdateRecordRangePos(unsigned int maxRecord, unsigned int bytesShifted);
@@ -28,10 +26,11 @@ public:
 
 protected:
 	// Inherited via BaseRecordManager
-	virtual void MoveToStart() override;
-	virtual bool MoveNext(Record* record, unsigned long long& accessedBlocks, unsigned long long& blockId, unsigned long long& recordNumberInBlock) override;
 	virtual void DeleteInternal(unsigned long long blockNumber, unsigned long long recordNumberInBlock) override;
 	bool GetNextRecordInFile(Record* record);
+	virtual FileHead* CreateNewFileHead(Schema* schema) override;
+	virtual FileWrapper<FileHead>* GetFile() override;
+
 
 private:
 	FileWrapper<HeapVarFileHead>* m_File;
