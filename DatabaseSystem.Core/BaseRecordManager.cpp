@@ -359,7 +359,6 @@ bool BaseRecordManager::TryGetNextValidRecord(Record* record)
 
 vector<Record*> BaseRecordManager::SelectBlock(unsigned long long blockIdReq)
 {
-	m_LastQueryBlockAccessCount = 0;
 	unsigned long long accessedBlocks = 0;
 
 	auto schema = GetSchema();
